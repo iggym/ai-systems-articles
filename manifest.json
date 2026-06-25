@@ -1,0 +1,22 @@
+{
+  "articles": [
+    {
+      "title": "Optimizing Large Language Model Context Windows",
+      "excerpt": "A deep dive into dynamic token packing strategies, deterministic multi-agent state boards, and programmatic context compression algorithms.",
+      "date": "2026-06-25",
+      "path": "articles/01-context-window-optimization/index.html"
+    },
+    {
+      "title": "Eliminating Orchestration Loops in Deterministic Multi-Agent Systems",
+      "excerpt": "An architectural blueprint for tracking agent execution states deterministically, reducing telemetry overhead, and breaking runaway inference loops.",
+      "date": "2026-05-18",
+      "path": "articles/02-deterministic-agent-stateboard/index.html"
+    },
+    {
+      "title": "The CloudSpec Protocol: JSON-Driven Cloud Architecture Prompting",
+      "excerpt": "Standardizing infrastructure topologies using simple, predictable metadata schemas designed for high-accuracy LLM generation pipelines.",
+      "date": "2026-04-02",
+      "path": "articles/03-cloudspec-generator/index.html"
+    }
+  ]
+}
