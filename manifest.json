@@ -7,16 +7,16 @@
       "path": "articles/context-orchestration.html"
     },
     {
-      "title": "Eliminating Orchestration Loops in Deterministic Multi-Agent Systems",
-      "excerpt": "An architectural blueprint for tracking agent execution states deterministically, reducing telemetry overhead, and breaking runaway inference loops.",
+      "title": "Verifiability & Governance",
+      "excerpt": "accountability infrastructure is becoming the substrate on which trustworthy AI autonomy is built.",
       "date": "2026-05-18",
-      "path": "articles/02-deterministic-agent-stateboard/index.html"
+      "path": "articles/verifiability.html"
     },
     {
-      "title": "The CloudSpec Protocol: JSON-Driven Cloud Architecture Prompting",
-      "excerpt": "Standardizing infrastructure topologies using simple, predictable metadata schemas designed for high-accuracy LLM generation pipelines.",
+      "title": "Context Engineering",
+      "excerpt": "Context Engineering is Reducing Uncertainty, Not Adding Information.",
       "date": "2026-04-02",
-      "path": "articles/03-cloudspec-generator/index.html"
+      "path": "articles/context-engineering.html"
     }
   ]
 }
