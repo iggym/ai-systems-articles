@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inference Arbitrage — Building Model-Agnostic AI Systems</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,700;1,9..144,300;1,9..144,400&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #06080d;
+      --surface: #0b0e16;
+      --surface-2: #0f1220;
+      --border: #181d2e;
+      --border-bright: #222840;
+      --accent: #00d4ff;
+      --accent-2: #7c3aed;
+      --accent-3: #22c55e;
+      --accent-warn: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-dim: rgba(0,212,255,0.08);
+      --accent-glow: rgba(0,212,255,0.2);
+      --accent-2-dim: rgba(124,58,237,0.10);
+      --headline: #e2e8f8;
+      --body: #7a8299;
+      --muted: #3d4460;
+      --good: #22c55e;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --provider-free: #22c55e;
+      --provider-low: #00d4ff;
+      --provider-mid: #f59e0b;
+      --provider-high: #ef4444;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--body);
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem; line-height: 1.75;
+      overflow-x: hidden;
+    }
+
+    body::after {
+      content: ''; position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999;
+    }
+
+    /* Scanline effect for terminal feel */
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.008) 2px, rgba(0,212,255,0.008) 4px);
+      pointer-events: none; z-index: 9998;
+    }
+
+    #progress-bar {
+      position: fixed; top: 0; left: 0; height: 2px; width: 0%;
+      background: linear-gradient(90deg, var(--accent-2), var(--accent), var(--accent-3));
+      z-index: 9997; box-shadow: 0 0 12px var(--accent-glow);
+      transition: width 0.1s linear;
+    }
+
+    #cursor-glow {
+      position: fixed; width: 360px; height: 360px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,212,255,0.035) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+      transform: translate(-50%,-50%);
+      transition: left 0.07s, top 0.07s;
+    }
+
+    .wrapper {
+      max-width: 860px; margin: 0 auto;
+      padding: 4rem 2rem 10rem;
+      position: relative; z-index: 1;
+    }
+
+    .back-link {
+      font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      color: var(--muted); text-decoration: none; letter-spacing: 0.08em;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--accent); }
+
+    /* ── HEADER ── */
+    .essay-header { margin-top: 4rem; padding-bottom: 2.5rem; border-bottom: 1px solid var(--border); }
+
+    .eyebrow {
+      font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--accent);
+      letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 1.25rem;
+      opacity: 0; transform: translateY(8px);
+      animation: fadeUp 0.5s ease forwards 0.1s;
+    }
+
+    h1.essay-title {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(2rem, 5.5vw, 3.1rem);
+      font-weight: 300; color: var(--headline);
+      line-height: 1.1; letter-spacing: -0.025em; margin-bottom: 0.75rem;
+      opacity: 0; transform: translateY(14px);
+      animation: fadeUp 0.65s ease forwards 0.22s;
+    }
+    h1.essay-title em { font-style: italic; color: var(--accent); }
+
+    .subtitle {
+      font-family: 'Fraunces', serif; font-size: 1.05rem;
+      color: var(--muted); font-style: italic; font-weight: 300;
+      margin-bottom: 1.5rem;
+      opacity: 0; transform: translateY(10px);
+      animation: fadeUp 0.6s ease forwards 0.35s;
+    }
+
+    .meta {
+      font-family: 'DM Mono', monospace; font-size: 0.7rem;
+      color: var(--muted); letter-spacing: 0.08em;
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      opacity: 0; animation: fadeUp 0.5s ease forwards 0.5s;
+    }
+
+    .meta-pill {
+      background: var(--accent-dim); border: 1px solid var(--accent);
+      color: var(--accent); padding: 0.18rem 0.6rem;
+      border-radius: 3px; font-size: 0.62rem; letter-spacing: 0.1em;
+    }
+
+    /* ── REVEAL ── */
+    .reveal {
+      opacity: 0; transform: translateY(22px);
+      transition: opacity 0.65s ease, transform 0.65s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── TYPE ── */
+    .lede {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(1.15rem, 2.5vw, 1.3rem);
+      color: var(--headline); line-height: 1.8;
+      margin-top: 2.5rem; font-weight: 300;
+    }
+
+    .essay-body p {
+      font-size: 1.02rem; color: var(--body); line-height: 1.88; margin-bottom: 1.75rem;
+    }
+    strong { color: var(--headline); font-weight: 500; }
+    code {
+      font-family: 'DM Mono', monospace; font-size: 0.82rem;
+      background: var(--surface-2); border: 1px solid var(--border);
+      padding: 0.15rem 0.4rem; border-radius: 3px; color: var(--accent);
+    }
+
+    .section-label {
+      display: flex; align-items: center; gap: 0.75rem;
+      margin: 3.5rem 0 1.75rem;
+    }
+    .section-label span {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--accent);
+      letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap;
+    }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .pullquote {
+      margin: 3rem 0; padding: 1.25rem 0 1.25rem 2rem;
+      border-left: 2px solid transparent;
+      background: linear-gradient(var(--bg), var(--bg)) padding-box,
+                  linear-gradient(180deg, var(--accent-2), var(--accent)) border-box;
+    }
+    .pullquote p {
+      font-family: 'Fraunces', serif; font-style: italic;
+      font-size: clamp(1.1rem, 2.5vw, 1.3rem);
+      color: var(--headline); line-height: 1.6; margin: 0;
+    }
+
+    .analogy-card {
+      background: var(--surface); border: 1px solid var(--border-bright);
+      border-radius: 10px; padding: 1.5rem 1.75rem;
+      margin: 2rem 0; position: relative; overflow: hidden;
+    }
+    .analogy-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at top left, var(--accent-2-dim), transparent 70%);
+      pointer-events: none;
+    }
+    .analogy-tag {
+      font-family: 'DM Mono', monospace; font-size: 0.63rem; color: var(--accent);
+      letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.65rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .analogy-tag::before { content: '◆'; font-size: 0.45rem; }
+    .analogy-card p { font-size: 0.97rem; color: var(--body); line-height: 1.8; margin: 0; }
+    .analogy-card p em { color: var(--headline); font-style: normal; font-weight: 500; }
+
+    /* ── WIDGET SHELL ── */
+    .widget {
+      background: var(--surface); border: 1px solid var(--border-bright);
+      border-radius: 12px; overflow: hidden; margin: 2.5rem 0;
+    }
+    .widget-header {
+      padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap;
+    }
+    .widget-label {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--muted); letter-spacing: 0.09em; text-transform: uppercase;
+    }
+    .widget-body { padding: 1.5rem; }
+
+    /* ── BUTTONS ── */
+    .pill-btn {
+      font-family: 'DM Mono', monospace; font-size: 0.63rem;
+      padding: 0.3rem 0.75rem; border-radius: 5px;
+      border: 1px solid var(--border-bright); background: transparent;
+      color: var(--muted); cursor: pointer; letter-spacing: 0.06em;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .pill-btn:hover, .pill-btn.active {
+      border-color: var(--accent); color: var(--accent); background: var(--accent-dim);
+    }
+
+    .run-btn {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      padding: 0.5rem 1.1rem; border-radius: 6px;
+      background: var(--accent); color: var(--bg);
+      border: none; cursor: pointer; letter-spacing: 0.07em;
+      transition: all 0.2s; white-space: nowrap; font-weight: 500;
+    }
+    .run-btn:hover { filter: brightness(1.15); box-shadow: 0 0 16px var(--accent-glow); }
+    .run-btn:disabled { opacity: 0.4; cursor: default; }
+
+    .copy-btn {
+      font-family: 'DM Mono', monospace; font-size: 0.6rem;
+      padding: 0.25rem 0.65rem; border-radius: 4px;
+      background: var(--surface-2); border: 1px solid var(--border-bright);
+      color: var(--muted); cursor: pointer; letter-spacing: 0.06em;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover { border-color: var(--accent-3); color: var(--accent-3); }
+    .copy-btn.copied { border-color: var(--accent-3); color: var(--accent-3); }
+
+    /* ── TERMINAL BLOCK ── */
+    .terminal {
+      background: #030508; border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.1rem 1.25rem;
+      font-family: 'DM Mono', monospace; font-size: 0.76rem;
+      line-height: 1.85; color: var(--body); position: relative;
+      white-space: pre-wrap;
+    }
+    .terminal .t-green { color: var(--accent-3); }
+    .terminal .t-blue { color: var(--accent); }
+    .terminal .t-purple { color: #a78bfa; }
+    .terminal .t-yellow { color: var(--accent-warn); }
+    .terminal .t-red { color: var(--accent-red); }
+    .terminal .t-dim { color: var(--muted); }
+    .terminal .t-white { color: var(--headline); }
+
+    .terminal-copy {
+      position: absolute; top: 0.75rem; right: 0.75rem;
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 1 — AI OS PIPELINE VISUALIZER
+    ════════════════════════════════════ */
+    .pipeline-wrap {
+      display: flex; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap;
+    }
+
+    .pipeline-stages {
+      display: flex; flex-direction: column; gap: 0.4rem; flex-shrink: 0;
+    }
+
+    .pipe-stage {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.55rem 0.9rem; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--surface-2);
+      cursor: pointer; transition: all 0.3s; min-width: 200px;
+    }
+    .pipe-stage.active {
+      border-color: var(--stage-c);
+      background: color-mix(in srgb, var(--stage-c) 8%, var(--surface-2));
+      box-shadow: 0 0 12px color-mix(in srgb, var(--stage-c) 15%, transparent);
+    }
+    .pipe-stage.highlight {
+      border-color: var(--stage-c);
+      animation: stagePulse 0.8s ease;
+    }
+
+    .pipe-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--stage-c); flex-shrink: 0;
+      transition: box-shadow 0.3s;
+    }
+    .pipe-stage.active .pipe-dot {
+      box-shadow: 0 0 8px var(--stage-c);
+    }
+
+    .pipe-name {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--body); letter-spacing: 0.04em; flex: 1;
+    }
+    .pipe-stage.active .pipe-name { color: var(--headline); }
+
+    .pipe-connector {
+      width: 1px; height: 12px; background: var(--border);
+      margin: 0 0 0 19px;
+    }
+
+    .pipe-detail {
+      flex: 1; min-width: 220px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.1rem 1.25rem;
+    }
+    .pipe-detail-name {
+      font-family: 'Fraunces', serif; font-size: 1rem;
+      color: var(--headline); margin-bottom: 0.5rem;
+    }
+    .pipe-detail-body {
+      font-size: 0.87rem; color: var(--body); line-height: 1.75;
+    }
+    .pipe-detail-tag {
+      font-family: 'DM Mono', monospace; font-size: 0.6rem;
+      color: var(--accent); letter-spacing: 0.1em; margin-top: 0.6rem;
+      display: block;
+    }
+
+    .run-pipeline-btn {
+      font-family: 'DM Mono', monospace; font-size: 0.65rem;
+      padding: 0.35rem 0.85rem; border-radius: 5px;
+      background: var(--accent-2); color: #fff;
+      border: none; cursor: pointer; letter-spacing: 0.06em;
+      transition: all 0.2s;
+    }
+    .run-pipeline-btn:hover { filter: brightness(1.15); }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 2 — COST ARBITRAGE CALCULATOR
+    ════════════════════════════════════ */
+    .cost-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;
+    }
+    @media (max-width:520px) { .cost-grid { grid-template-columns: 1fr; } }
+
+    .cost-ctrl {
+      display: flex; flex-direction: column; gap: 0.4rem;
+    }
+    .cost-ctrl-label {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--muted); letter-spacing: 0.08em;
+    }
+    .cost-ctrl input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 4px; border-radius: 2px;
+      background: var(--border-bright); outline: none; cursor: pointer;
+    }
+    .cost-ctrl input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px;
+      border-radius: 50%; background: var(--accent); cursor: pointer;
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+    .cost-ctrl-val {
+      font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--accent);
+    }
+
+    .cost-comparison {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;
+    }
+    @media (max-width:520px) { .cost-comparison { grid-template-columns: 1fr; } }
+
+    .cost-panel {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1rem;
+    }
+    .cost-panel-title {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.75rem;
+    }
+    .cost-panel-title.single { color: var(--accent-red); }
+    .cost-panel-title.arb { color: var(--accent-3); }
+
+    .cost-big {
+      font-family: 'Fraunces', serif; font-size: 2rem;
+      line-height: 1; margin-bottom: 0.25rem; transition: color 0.4s;
+    }
+    .cost-per {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--muted);
+    }
+
+    .cost-breakdown {
+      margin-top: 0.85rem; display: flex; flex-direction: column; gap: 0.3rem;
+    }
+    .cost-row-item {
+      display: flex; justify-content: space-between;
+      font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--muted);
+    }
+    .cost-row-item span:last-child { color: var(--body); }
+
+    .cost-savings-banner {
+      background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.2);
+      border-radius: 8px; padding: 0.85rem 1.1rem;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 0.75rem;
+    }
+    .savings-label {
+      font-family: 'DM Mono', monospace; font-size: 0.65rem;
+      color: var(--muted); letter-spacing: 0.08em;
+    }
+    .savings-val {
+      font-family: 'Fraunces', serif; font-size: 1.75rem; color: var(--accent-3);
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 3 — INFERENCE ROUTER
+    ════════════════════════════════════ */
+    .router-form {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;
+    }
+    @media (max-width:580px) { .router-form { grid-template-columns: 1fr; } }
+
+    .router-field { display: flex; flex-direction: column; gap: 0.4rem; }
+    .router-field-label {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--muted); letter-spacing: 0.08em;
+    }
+    .router-select {
+      background: var(--surface-2); border: 1px solid var(--border-bright);
+      border-radius: 6px; padding: 0.5rem 0.75rem;
+      font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      color: var(--headline); outline: none; cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .router-select:focus { border-color: var(--accent); }
+
+    .router-result {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden;
+    }
+
+    .router-result-header {
+      padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);
+      font-family: 'DM Mono', monospace; font-size: 0.63rem;
+      color: var(--muted); letter-spacing: 0.08em;
+    }
+
+    .router-providers {
+      display: flex; flex-direction: column; gap: 0;
+    }
+
+    .provider-row {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.7rem 1rem; border-bottom: 1px solid var(--border);
+      transition: background 0.2s;
+    }
+    .provider-row:last-child { border-bottom: none; }
+    .provider-row.recommended {
+      background: rgba(0,212,255,0.04);
+      border-left: 2px solid var(--accent);
+    }
+
+    .provider-rank {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--muted); width: 20px;
+    }
+    .provider-name {
+      font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      color: var(--headline); flex: 1;
+    }
+    .provider-cost-tag {
+      font-family: 'DM Mono', monospace; font-size: 0.6rem;
+      padding: 0.15rem 0.5rem; border-radius: 3px;
+    }
+    .provider-latency {
+      font-family: 'DM Mono', monospace; font-size: 0.6rem;
+      color: var(--muted); width: 55px; text-align: right;
+    }
+    .provider-badge {
+      font-family: 'DM Mono', monospace; font-size: 0.55rem;
+      padding: 0.1rem 0.4rem; border-radius: 3px;
+      background: var(--accent-dim); color: var(--accent);
+      border: 1px solid rgba(0,212,255,0.2);
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 4 — CAPABILITY MATRIX
+    ════════════════════════════════════ */
+    .matrix-table {
+      width: 100%; border-collapse: collapse;
+      font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    }
+    .matrix-table th {
+      text-align: left; padding: 0.6rem 0.85rem;
+      border-bottom: 1px solid var(--border-bright);
+      color: var(--accent); letter-spacing: 0.1em; font-size: 0.62rem;
+      text-transform: uppercase;
+    }
+    .matrix-table td {
+      padding: 0.5rem 0.85rem; border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .matrix-table tr:hover td { background: rgba(0,212,255,0.02); }
+
+    .matrix-select {
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 4px; padding: 0.3rem 0.5rem;
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--body); outline: none; cursor: pointer;
+      width: 100%;
+      transition: border-color 0.2s;
+    }
+    .matrix-select:focus { border-color: var(--accent); color: var(--headline); }
+
+    .capability-label {
+      color: var(--headline); font-size: 0.72rem;
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 5 — PROMPT HARNESS
+    ════════════════════════════════════ */
+    .harness-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    }
+    @media (max-width:560px) { .harness-grid { grid-template-columns: 1fr; } }
+
+    .harness-panel {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden;
+    }
+    .harness-panel-header {
+      padding: 0.65rem 1rem; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .harness-panel-title {
+      font-family: 'DM Mono', monospace; font-size: 0.65rem;
+      letter-spacing: 0.08em;
+    }
+    .harness-score {
+      font-family: 'Fraunces', serif; font-size: 1.1rem;
+      transition: color 0.4s;
+    }
+    .harness-panel-body {
+      padding: 0.85rem 1rem; font-size: 0.85rem;
+      color: var(--body); line-height: 1.75; min-height: 100px;
+    }
+
+    .harness-metrics {
+      display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;
+    }
+    .harness-metric {
+      display: flex; flex-direction: column; gap: 0.2rem;
+    }
+    .harness-metric-label {
+      font-family: 'DM Mono', monospace; font-size: 0.58rem;
+      color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .harness-metric-val {
+      font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--headline);
+    }
+
+    .harness-prompt-input {
+      width: 100%; background: var(--surface-2); border: 1px solid var(--border-bright);
+      border-radius: 6px; padding: 0.65rem 0.85rem;
+      font-family: 'DM Mono', monospace; font-size: 0.75rem;
+      color: var(--headline); outline: none; resize: vertical;
+      min-height: 70px; transition: border-color 0.2s;
+    }
+    .harness-prompt-input:focus { border-color: var(--accent); }
+    .harness-prompt-input::placeholder { color: var(--muted); }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 6 — MULTI-MODEL ROLE ASSIGNER
+    ════════════════════════════════════ */
+    .role-assigner-grid {
+      display: flex; flex-direction: column; gap: 0.5rem;
+    }
+
+    .role-row {
+      display: grid; grid-template-columns: 140px 1fr 120px;
+      align-items: center; gap: 0.75rem;
+      padding: 0.65rem 0.85rem; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--surface-2);
+      transition: border-color 0.3s;
+    }
+    .role-row:hover { border-color: var(--border-bright); }
+
+    @media (max-width:520px) {
+      .role-row { grid-template-columns: 1fr; }
+    }
+
+    .role-name {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--accent); letter-spacing: 0.04em;
+    }
+    .role-select {
+      background: var(--surface); border: 1px solid var(--border-bright);
+      border-radius: 5px; padding: 0.35rem 0.6rem;
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--headline); outline: none; cursor: pointer;
+      transition: border-color 0.2s; width: 100%;
+    }
+    .role-select:focus { border-color: var(--accent); }
+
+    .role-cost-pill {
+      font-family: 'DM Mono', monospace; font-size: 0.6rem;
+      padding: 0.2rem 0.5rem; border-radius: 3px; text-align: center;
+    }
+
+    .role-total-bar {
+      margin-top: 1rem; padding: 0.85rem 1rem;
+      background: var(--surface-2); border-radius: 6px;
+      border: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 0.5rem;
+    }
+    .role-total-label {
+      font-family: 'DM Mono', monospace; font-size: 0.63rem;
+      color: var(--muted); letter-spacing: 0.08em;
+    }
+    .role-total-val {
+      font-family: 'Fraunces', serif; font-size: 1.3rem; color: var(--accent-3);
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 7 — SYSTEM PROMPT ARCHITECT
+    ════════════════════════════════════ */
+    .syspm-layers {
+      display: flex; flex-direction: column; gap: 0.75rem;
+    }
+
+    .syspm-layer {
+      border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+      transition: border-color 0.3s;
+    }
+    .syspm-layer:focus-within { border-color: var(--accent); }
+
+    .syspm-layer-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.65rem 1rem; background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+    }
+    .syspm-layer-label {
+      font-family: 'DM Mono', monospace; font-size: 0.65rem;
+      color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .syspm-layer-hint {
+      font-family: 'DM Mono', monospace; font-size: 0.58rem; color: var(--muted);
+    }
+    .syspm-textarea {
+      width: 100%; background: var(--surface);
+      border: none; outline: none;
+      padding: 0.75rem 1rem; resize: vertical; min-height: 55px;
+      font-family: 'DM Mono', monospace; font-size: 0.74rem;
+      color: var(--body); line-height: 1.7;
+    }
+    .syspm-textarea::placeholder { color: var(--muted); }
+
+    .syspm-output {
+      background: #030508; border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.1rem 1.25rem;
+      font-family: 'DM Mono', monospace; font-size: 0.74rem;
+      color: var(--body); line-height: 1.85; white-space: pre-wrap;
+      position: relative; display: none; margin-top: 1rem;
+    }
+    .syspm-output.show { display: block; }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 8 — PROMPT PATTERN LIBRARY
+    ════════════════════════════════════ */
+    .pattern-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr));
+      gap: 1rem; margin-top: 1.25rem;
+    }
+
+    .pattern-card {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem 1.1rem;
+      transition: border-color 0.3s, transform 0.3s;
+      cursor: default; position: relative;
+    }
+    .pattern-card:hover { border-color: var(--accent-2); transform: translateY(-2px); }
+    .pattern-card.hidden { display: none; }
+
+    .pattern-cat {
+      font-family: 'DM Mono', monospace; font-size: 0.58rem;
+      letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.4rem;
+    }
+    .pattern-name {
+      font-family: 'Fraunces', serif; font-size: 0.97rem;
+      color: var(--headline); font-weight: 400; margin-bottom: 0.35rem;
+    }
+    .pattern-desc {
+      font-size: 0.82rem; color: var(--body); line-height: 1.65; margin-bottom: 0.75rem;
+    }
+    .pattern-template {
+      background: #030508; border: 1px solid var(--border);
+      border-radius: 5px; padding: 0.6rem 0.75rem;
+      font-family: 'DM Mono', monospace; font-size: 0.67rem;
+      color: var(--muted); line-height: 1.65;
+      margin-bottom: 0.5rem; white-space: pre-wrap;
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 9 — CONTEXT COMPRESSION
+    ════════════════════════════════════ */
+    .compression-output-grid {
+      display: grid; gap: 0.6rem; margin-top: 1rem;
+    }
+    .compression-field {
+      display: flex; gap: 0.75rem;
+      padding: 0.6rem 0.85rem;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 6px; opacity: 0;
+      transform: translateX(-8px);
+      transition: opacity 0.35s, transform 0.35s;
+    }
+    .compression-field.show { opacity: 1; transform: translateX(0); }
+    .compression-field-key {
+      font-family: 'DM Mono', monospace; font-size: 0.67rem;
+      color: var(--accent-2); letter-spacing: 0.06em;
+      width: 140px; flex-shrink: 0; text-transform: uppercase;
+    }
+    .compression-field-val {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--body); line-height: 1.6;
+    }
+
+    footer {
+      margin-top: 5rem; padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--muted); letter-spacing: 0.06em;
+      display: flex; justify-content: space-between;
+    }
+
+    @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+    @keyframes stagePulse {
+      0% { box-shadow: 0 0 0 0 var(--stage-c); }
+      50% { box-shadow: 0 0 0 6px transparent; }
+      100% { box-shadow: none; }
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1; transform: none; transition: none; }
+      * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+<div id="cursor-glow"></div>
+
+<div class="wrapper">
+
+  <a href="../index.html" class="back-link">← BACK TO ARCHITECT</a>
+
+  <header class="essay-header">
+    <div class="eyebrow">// INFERENCE ARBITRAGE</div>
+    <h1 class="essay-title">Build the Smartest System<br><em>Not the Smartest Model</em></h1>
+    <div class="subtitle">How to build production-quality, model-agnostic AI systems that exploit free and low-cost inference at scale</div>
+    <div class="meta">
+      <span class="meta-pill">ARCHITECTURE + TOOLS</span>
+      JUNE 2026 &nbsp;·&nbsp; 10 MIN READ &nbsp;·&nbsp; 9 INTERACTIVE TOOLS
+    </div>
+  </header>
+
+  <div class="reveal" style="margin-top:2.5rem;">
+    <p class="lede">
+      Most discussions about AI agents still assume the model is the product. The more durable insight is that inference becomes a commodity — and orchestration becomes the differentiator. The goal isn't "how do I get access to GPT-6?" The goal is: how do I build production-quality AI systems that continuously exploit dozens of free and low-cost inference providers while remaining completely model-agnostic?
+    </p>
+  </div>
+
+  <div class="essay-body reveal" style="margin-top:1.75rem;">
+    <p>
+      That question changes almost everything. Instead of <strong>Model Loyalty</strong>, you optimise for <strong>Inference Arbitrage</strong>. You treat every model as an interchangeable reasoning engine — the same way cloud architects treat compute providers. The application owns the orchestration. The model becomes replaceable.
+    </p>
+    <p>
+      Look at the production AI stack carefully: Goals → Planning → Context Engineering → Prompt Construction → Inference Routing → Tool Calling → Verification → Memory Update → Evaluation → Retry → Human Review. <strong>Only one of those layers is inference. Everything else is engineering.</strong>
+    </p>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · The Central Shift</div>
+    <p>
+      Electricity used to require you to own the power plant. Then the grid arrived — standardised voltage, interchangeable providers, metered by the kilowatt-hour. Nobody builds a competitive advantage from which power company they use. They compete on what they <em>do</em> with the electricity. <em>Inference is becoming electricity. The grid is already being built. The engineers who wire their systems to it — rather than tying themselves to one generator — will have a structural cost and resilience advantage that compounds indefinitely.</em>
+    </p>
+  </div>
+
+  <div class="pullquote reveal">
+    <p>"The frontier model is no longer the product. It is one interchangeable component in a larger intelligence pipeline. The enduring advantage comes from mastering the orchestration layer."</p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 1 — AI OS PIPELINE VISUALIZER
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>The AI Operating System — All 13 Layers</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Instead of viewing AI as a chatbot, treat it as an operating system with specialised services. Each layer has a distinct job, can use a different model, and can be optimised independently. Click any stage to explore what it does and why it matters — then run the full pipeline to watch a request flow through the system.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="pipeline-widget">
+    <div class="widget-header">
+      <div class="widget-label">AI OS Pipeline Visualizer</div>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="run-pipeline-btn" id="run-pipeline-btn">▶ Run Pipeline</button>
+      </div>
+    </div>
+    <div class="widget-body">
+      <div class="pipeline-wrap">
+        <div>
+          <div class="pipeline-stages" id="pipeline-stages"></div>
+        </div>
+        <div class="pipe-detail" id="pipe-detail">
+          <div class="pipe-detail-name" id="pipe-detail-name" style="color:var(--muted)">Select a stage</div>
+          <div class="pipe-detail-body" id="pipe-detail-body" style="color:var(--muted)">Click any layer on the left to explore what it does and which inference providers work best for it.</div>
+          <span class="pipe-detail-tag" id="pipe-detail-tag"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · The Pipeline</div>
+    <p>
+      A Formula 1 car has one engine but hundreds of systems: aerodynamics, tyres, fuel strategy, pit crew timing, telemetry, driver inputs. Winning isn't about having the most powerful engine. It's about how all the systems work together. <em>The AI OS is your race car. Inference is just the engine. The teams winning production AI are optimising the whole car, not just the horsepower.</em>
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 2 — COST ARBITRAGE CALCULATOR
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Inference Arbitrage — The Cost Calculator</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Extract maximum intelligence for minimum cost. Instead of running everything through one premium model, route tasks by complexity: free providers handle simple tasks, low-cost providers handle medium tasks, premium providers handle only what requires them. The math becomes compelling at scale — adjust the sliders to see your exact savings.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="cost-widget">
+    <div class="widget-header">
+      <div class="widget-label">Cost Arbitrage Calculator</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">SINGLE PROVIDER VS ARBITRAGE STACK</div>
+    </div>
+    <div class="widget-body">
+      <div class="cost-grid">
+        <div class="cost-ctrl">
+          <div class="cost-ctrl-label">DAILY API CALLS</div>
+          <input type="range" id="cost-calls" min="100" max="100000" value="10000" step="100">
+          <div class="cost-ctrl-val" id="cost-calls-val">10,000 / day</div>
+        </div>
+        <div class="cost-ctrl">
+          <div class="cost-ctrl-label">AVG TOKENS PER CALL</div>
+          <input type="range" id="cost-tokens" min="200" max="4000" value="800" step="100">
+          <div class="cost-ctrl-val" id="cost-tokens-val">800 tokens</div>
+        </div>
+        <div class="cost-ctrl">
+          <div class="cost-ctrl-label">SIMPLE TASK % (free tier eligible)</div>
+          <input type="range" id="cost-simple" min="0" max="80" value="40">
+          <div class="cost-ctrl-val" id="cost-simple-val">40%</div>
+        </div>
+        <div class="cost-ctrl">
+          <div class="cost-ctrl-label">MEDIUM TASK % (low-cost models)</div>
+          <input type="range" id="cost-medium" min="0" max="60" value="35">
+          <div class="cost-ctrl-val" id="cost-medium-val">35%</div>
+        </div>
+      </div>
+      <div class="cost-comparison">
+        <div class="cost-panel">
+          <div class="cost-panel-title single">SINGLE PROVIDER (GPT-4 class)</div>
+          <div class="cost-big" id="single-daily" style="color:var(--accent-red);">$0</div>
+          <div class="cost-per">per day</div>
+          <div class="cost-breakdown" id="single-breakdown"></div>
+        </div>
+        <div class="cost-panel">
+          <div class="cost-panel-title arb">ARBITRAGE STACK (routed)</div>
+          <div class="cost-big" id="arb-daily" style="color:var(--accent-3);">$0</div>
+          <div class="cost-per">per day</div>
+          <div class="cost-breakdown" id="arb-breakdown"></div>
+        </div>
+      </div>
+      <div class="cost-savings-banner">
+        <div>
+          <div class="savings-label">ANNUAL SAVINGS — ARBITRAGE VS SINGLE PROVIDER</div>
+          <div style="font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--muted);margin-top:0.2rem;" id="savings-sub"></div>
+        </div>
+        <div class="savings-val" id="annual-savings">$0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 3 — INFERENCE ROUTER
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>The Inference Router — Task to Provider in One Click</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Instead of hardcoding models, build a router that detects capability requirements, cost budget, and latency constraints — then selects the optimal provider for each request. Models become plug-ins. Select a task type, budget, and latency requirement below to see the router's recommendation.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="router-widget">
+    <div class="widget-header">
+      <div class="widget-label">Inference Router Builder</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">SELECT TASK → GET PROVIDER RECOMMENDATION</div>
+    </div>
+    <div class="widget-body">
+      <div class="router-form">
+        <div class="router-field">
+          <div class="router-field-label">TASK TYPE</div>
+          <select class="router-select" id="router-task">
+            <option value="planning">Planning / Reasoning</option>
+            <option value="coding">Code Generation</option>
+            <option value="summarization">Summarization</option>
+            <option value="vision">Vision / Multimodal</option>
+            <option value="json">Structured JSON Output</option>
+            <option value="search">Web Search / Research</option>
+            <option value="classification">Classification</option>
+            <option value="embedding">Embeddings</option>
+          </select>
+        </div>
+        <div class="router-field">
+          <div class="router-field-label">COST BUDGET</div>
+          <select class="router-select" id="router-budget">
+            <option value="free">Free only</option>
+            <option value="low">Low cost (&lt;$1/M tokens)</option>
+            <option value="medium" selected>Medium (&lt;$5/M tokens)</option>
+            <option value="any">Any (best quality)</option>
+          </select>
+        </div>
+        <div class="router-field">
+          <div class="router-field-label">LATENCY REQUIREMENT</div>
+          <select class="router-select" id="router-latency">
+            <option value="realtime">Real-time (&lt;500ms)</option>
+            <option value="fast" selected>Fast (&lt;2s)</option>
+            <option value="batch">Batch (&lt;30s)</option>
+          </select>
+        </div>
+      </div>
+      <div class="router-result" id="router-result">
+        <div class="router-result-header">RECOMMENDED PROVIDER STACK — RANKED BY FIT</div>
+        <div class="router-providers" id="router-providers"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 4 — CAPABILITY MATRIX
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Capability Matrix Builder — Map Every Task to a Provider</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Instead of asking "what model is best?", build a capability matrix that assigns the right provider to each task type — with a backup. This is a live, editable template. Configure it for your stack and copy it directly into your project.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="matrix-widget">
+    <div class="widget-header">
+      <div class="widget-label">Capability Matrix Builder</div>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="copy-btn" id="copy-matrix-btn">Copy as JSON</button>
+        <button class="copy-btn" id="copy-matrix-md">Copy as Markdown</button>
+      </div>
+    </div>
+    <div class="widget-body" style="overflow-x:auto;">
+      <table class="matrix-table" id="matrix-table">
+        <thead>
+          <tr>
+            <th>Capability</th>
+            <th>Primary Provider</th>
+            <th>Backup Provider</th>
+            <th>Cost Tier</th>
+          </tr>
+        </thead>
+        <tbody id="matrix-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 5 — PROMPT HARNESS SIMULATOR
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Prompt Harness Simulator — Measure Before You Ship</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      A prompt harness is analogous to a software test harness. Instead of prompt → answer, you build prompt → Model A → Evaluation → Model B → Evaluation → Compare → Score → Store. Now prompts become measurable. Enter a prompt below and run it through the harness to see a simulated A/B evaluation across two providers.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="harness-widget">
+    <div class="widget-header">
+      <div class="widget-label">Prompt Harness Simulator</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">A/B EVALUATION ACROSS TWO PROVIDERS</div>
+    </div>
+    <div class="widget-body">
+      <div style="margin-bottom:1rem;">
+        <div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.08em;margin-bottom:0.4rem;">YOUR PROMPT</div>
+        <textarea class="harness-prompt-input" id="harness-prompt" placeholder="Enter a prompt to evaluate across providers… e.g. 'Summarize the key risks in a Series A term sheet in 3 bullet points.'"></textarea>
+      </div>
+      <div style="display:flex;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center;">
+        <button class="run-btn" id="harness-run-btn">▶ Run Harness</button>
+        <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);" id="harness-status">Enter a prompt and click Run</span>
+      </div>
+      <div class="harness-grid" id="harness-grid">
+        <div class="harness-panel">
+          <div class="harness-panel-header">
+            <div class="harness-panel-title" style="color:var(--accent);">MODEL A</div>
+            <div class="harness-score" id="score-a" style="color:var(--muted);">—</div>
+          </div>
+          <div class="harness-panel-body" id="output-a" style="color:var(--muted);">Awaiting evaluation…</div>
+        </div>
+        <div class="harness-panel">
+          <div class="harness-panel-header">
+            <div class="harness-panel-title" style="color:var(--accent-2);">MODEL B</div>
+            <div class="harness-score" id="score-b" style="color:var(--muted);">—</div>
+          </div>
+          <div class="harness-panel-body" id="output-b" style="color:var(--muted);">Awaiting evaluation…</div>
+        </div>
+      </div>
+      <div class="harness-metrics" id="harness-metrics" style="display:none;">
+        <div class="harness-metric">
+          <div class="harness-metric-label">WINNER</div>
+          <div class="harness-metric-val" id="harness-winner">—</div>
+        </div>
+        <div class="harness-metric">
+          <div class="harness-metric-label">LATENCY A</div>
+          <div class="harness-metric-val" id="latency-a">—</div>
+        </div>
+        <div class="harness-metric">
+          <div class="harness-metric-label">LATENCY B</div>
+          <div class="harness-metric-val" id="latency-b">—</div>
+        </div>
+        <div class="harness-metric">
+          <div class="harness-metric-label">RECOMMENDATION</div>
+          <div class="harness-metric-val" id="harness-rec" style="color:var(--accent-3);">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 6 — MULTI-MODEL ROLE ASSIGNER
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Multi-Model Role Assigner — No Model Needs to Know About the Others</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Instead of one model doing everything, assign each agent role to the provider best suited for it. The planner doesn't need to be the same model as the researcher. The verifier doesn't need to be the same as the coder. Configure your stack below — the total estimated cost per 1,000 runs updates as you build.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="role-widget">
+    <div class="widget-header">
+      <div class="widget-label">Multi-Model Role Assigner</div>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="copy-btn" id="copy-roles-btn">Copy Config</button>
+      </div>
+    </div>
+    <div class="widget-body">
+      <div class="role-assigner-grid" id="role-assigner-grid"></div>
+      <div class="role-total-bar">
+        <div>
+          <div class="role-total-label">EST. COST PER 1,000 PIPELINE RUNS</div>
+          <div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);margin-top:0.2rem;" id="role-vs">vs. $— single-model equivalent</div>
+        </div>
+        <div class="role-total-val" id="role-total">$0.00</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 7 — SYSTEM PROMPT ARCHITECT
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>System Prompt Architect — 7-Layer Builder with Copy</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Think in layers rather than monoliths. A well-structured system prompt has seven distinct layers — Identity, Objective, Constraints, Context, Tools, Output, and Evaluation. Each answers a different question the model needs before it can perform. Fill in each layer below and generate a production-ready system prompt you can copy directly into your project.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="syspm-widget">
+    <div class="widget-header">
+      <div class="widget-label">System Prompt Architect</div>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="run-btn" id="syspm-generate-btn">Generate Prompt</button>
+        <button class="copy-btn" id="syspm-copy-btn" style="display:none;">Copy</button>
+      </div>
+    </div>
+    <div class="widget-body">
+      <div class="syspm-layers" id="syspm-layers"></div>
+      <div class="syspm-output" id="syspm-output">
+        <button class="copy-btn terminal-copy" id="syspm-output-copy">Copy</button>
+        <div id="syspm-output-text"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 8 — PROMPT PATTERN LIBRARY
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Prompt Pattern Library — 20 Reusable Templates</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Instead of one prompt, create reusable prompt families — each optimised independently. This library covers all 20 core prompt patterns. Every card includes a ready-to-copy template. Filter by category to find the pattern you need.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="pattern-widget">
+    <div class="widget-header">
+      <div class="widget-label">Prompt Pattern Library</div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;" id="pattern-filter-row">
+        <button class="pill-btn active" data-filter="all">All (20)</button>
+        <button class="pill-btn" data-filter="planning">Planning</button>
+        <button class="pill-btn" data-filter="execution">Execution</button>
+        <button class="pill-btn" data-filter="verification">Verification</button>
+        <button class="pill-btn" data-filter="synthesis">Synthesis</button>
+      </div>
+    </div>
+    <div class="widget-body">
+      <div class="pattern-grid" id="pattern-grid"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 9 — CONTEXT COMPRESSION
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Context Compression Tool — Extract Signal, Drop Noise</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Instead of continually expanding conversations into the context window, compress them into structured memory. The compression prompt extracts only decisions, assumptions, TODOs, constraints, preferences, and unresolved questions — and ignores everything else. Paste any conversation or document below and compress it.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="compress-widget">
+    <div class="widget-header">
+      <div class="widget-label">Context Compression Tool</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">AI-POWERED · PASTE CONVERSATION → EXTRACT SIGNAL</div>
+    </div>
+    <div class="widget-body">
+      <div style="margin-bottom:1rem;">
+        <div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.08em;margin-bottom:0.4rem;">CONVERSATION OR DOCUMENT TO COMPRESS</div>
+        <textarea class="harness-prompt-input" id="compress-input" style="min-height:120px;" placeholder="Paste a conversation, meeting notes, long document, or any text you want to compress into structured memory…"></textarea>
+      </div>
+      <div style="display:flex;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center;">
+        <button class="run-btn" id="compress-run-btn">⟳ Compress</button>
+        <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);" id="compress-status">Paste text and click Compress</span>
+      </div>
+      <div class="compression-output-grid" id="compress-output"></div>
+      <div style="display:none;" id="compress-copy-row">
+        <button class="copy-btn" id="compress-copy-btn" style="margin-top:0.75rem;">Copy Compressed Memory</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLOSING -->
+  <div class="reveal" style="margin-top:4rem;padding-top:2.5rem;border-top:1px solid var(--border);">
+    <div class="section-label" style="margin-top:0;"><span>The Long-Term Leverage</span></div>
+    <div class="essay-body">
+      <p>
+        By designing your AI system to be provider-agnostic, you gain three compounding advantages: the freedom to exploit free and low-cost inference wherever it appears, the ability to swap models as the ecosystem evolves, and the capacity to continuously optimise quality, latency, and cost without rewriting your application.
+      </p>
+      <p>
+        <strong>The long-term leverage shifts from using the smartest model to building the smartest system</strong> — one that treats inference as a commodity and orchestration as the true source of value. The engineers who master context engineering, prompt architecture, inference routing, evaluation harnesses, memory management, and agent orchestration will have a structural advantage that compounds as model prices fall and new providers emerge.
+      </p>
+    </div>
+    <div class="analogy-card">
+      <div class="analogy-tag">Final Analogy · The Big Picture</div>
+      <p>
+        In the early days of the internet, having a website was the advantage. Then everyone had a website, and the advantage shifted to search ranking. Then everyone had good SEO, and the advantage shifted to distribution. Each time, the leverage moved up the stack — away from the commodity layer and toward the orchestration layer. <em>AI inference is undergoing the same transition right now, in real time. The commodity layer is inference. The orchestration layer is where the durable value lives.</em> The engineers building there today are a generation ahead.
+      </p>
+    </div>
+  </div>
+
+  <footer>
+    <span>// INFERENCE ARBITRAGE</span>
+    <span>JUNE 2026</span>
+  </footer>
+</div>
+
+<script>
+// ── UTILS ──
+const $ = id => document.getElementById(id);
+const bar = $('progress-bar');
+window.addEventListener('scroll', () => {
+  const d = document.documentElement;
+  bar.style.width = Math.min(100,(d.scrollTop/(d.scrollHeight-d.clientHeight))*100)+'%';
+});
+$('cursor-glow') && document.addEventListener('mousemove', e => {
+  $('cursor-glow').style.left = e.clientX+'px';
+  $('cursor-glow').style.top = e.clientY+'px';
+});
+
+const reveals = document.querySelectorAll('.reveal');
+const ro = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('visible'); ro.unobserve(e.target); }});
+}, { threshold:0.08, rootMargin:'0px 0px -30px 0px' });
+reveals.forEach(el => ro.observe(el));
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent; btn.textContent = '✓ Copied'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1800);
+  });
+}
+
+// ════════════════════════════════════
+// INTERACTIVE 1 — AI OS PIPELINE
+// ════════════════════════════════════
+const pipelineData = [
+  { name:'Intent Classification', color:'#00d4ff', desc:'Classifies the user goal into a known task type. Determines which pipeline branch to activate. Fast, cheap models work here — classification is low-complexity.', recommended:'Gemini Flash · Groq Llama · Cloudflare AI', tag:'COMPLEXITY: LOW — USE FREE TIER' },
+  { name:'Planning Service', color:'#7c3aed', desc:'Decomposes the goal into a task graph with dependencies, risks, unknowns, required context, and success criteria. This is where reasoning models earn their cost.', recommended:'o3-mini · Gemini Thinking · DeepSeek R2', tag:'COMPLEXITY: HIGH — USE REASONING MODEL' },
+  { name:'Context Assembly', color:'#22c55e', desc:'Assembles the full context window: user state, memory, retrieved docs, examples, policies, tool results, and constraints. This is pure orchestration — no inference needed.', recommended:'No inference — orchestration only', tag:'COMPLEXITY: ZERO — ENGINEERING LAYER' },
+  { name:'Prompt Construction', color:'#00d4ff', desc:'Builds the final prompt from modular components: planner.md, critic.md, constraints.md. Prompt libraries become software. Each module is versioned, tested, and swappable.', recommended:'No inference — template assembly', tag:'COMPLEXITY: ZERO — ENGINEERING LAYER' },
+  { name:'Inference Routing', color:'#f59e0b', desc:'Routes the constructed prompt to the optimal provider based on capability, cost budget, and latency requirement. The router selects from a live registry of providers with fallback chains.', recommended:'Custom router — provider-agnostic', tag:'COMPLEXITY: LOW — ROUTING LOGIC' },
+  { name:'Free API Layer', color:'#22c55e', desc:'Gemini Flash · Groq · GitHub Models · Cloudflare Workers AI · HuggingFace · Google AI Studio · Cerebras · Together free · DeepInfra. Handles 40-60% of production workloads.', recommended:'All free tier providers', tag:'COST: $0 — ROUTE HERE FIRST' },
+  { name:'Tool Invocation', color:'#7c3aed', desc:'Executes tool calls: web search, code execution, API calls, database queries, file operations. Results are returned to the context layer for the next inference cycle.', recommended:'Cloudflare Workers · Lambda · Vercel', tag:'COMPLEXITY: MEDIUM — INTEGRATION LAYER' },
+  { name:'Verification & Eval', color:'#ef4444', desc:'Checks: did it answer? Is anything unsupported? Missing requirements? Invalid JSON? Broken code? Missing citations? Runs a lightweight verifier model before accepting output.', recommended:'Gemini Flash · Groq Llama — cheap verifiers', tag:'COMPLEXITY: LOW — HIGH VALUE' },
+  { name:'Memory & Knowledge', color:'#00d4ff', desc:'Compresses conversation history into structured memory. Updates project state. Writes to vector store. Maintains the rolling snowball of accumulated context across sessions.', recommended:'No inference — vector DB + compression', tag:'COMPLEXITY: MEDIUM — PERSISTENCE LAYER' },
+  { name:'Retry & Repair', color:'#f59e0b', desc:'On failure, triggers the repair prompt. Identifies what went wrong, constructs a targeted fix prompt, re-routes to inference. Closes the loop without human intervention.', recommended:'Repair model — same or cheaper tier', tag:'COMPLEXITY: LOW — RESILIENCE LAYER' },
+  { name:'User Response & Log', color:'#22c55e', desc:'Formats and delivers the final response. Simultaneously writes the full execution trace to immutable audit log: prompt, provider, latency, cost, output hash, evaluation score.', recommended:'No inference — delivery + logging', tag:'COMPLEXITY: ZERO — ENGINEERING LAYER' },
+];
+
+let activePipeStage = -1;
+const stagesEl = document.getElementById('pipeline-stages');
+
+pipelineData.forEach((stage, i) => {
+  if (i > 0) {
+    const conn = document.createElement('div');
+    conn.className = 'pipe-connector';
+    stagesEl.appendChild(conn);
+  }
+  const div = document.createElement('div');
+  div.className = 'pipe-stage';
+  div.style.setProperty('--stage-c', stage.color);
+  div.innerHTML = `<div class="pipe-dot"></div><div class="pipe-name">${stage.name}</div>`;
+  div.addEventListener('click', () => {
+    document.querySelectorAll('.pipe-stage').forEach(s => s.classList.remove('active'));
+    div.classList.add('active'); activePipeStage = i;
+    $('pipe-detail-name').textContent = stage.name;
+    $('pipe-detail-name').style.color = stage.color;
+    $('pipe-detail-body').textContent = stage.desc + '\n\nBest providers: ' + stage.recommended;
+    $('pipe-detail-tag').textContent = stage.tag;
+    $('pipe-detail-tag').style.color = stage.color;
+  });
+  stagesEl.appendChild(div);
+});
+
+$('run-pipeline-btn').addEventListener('click', () => {
+  let i = 0;
+  const stages = document.querySelectorAll('.pipe-stage');
+  document.querySelectorAll('.pipe-stage').forEach(s => s.classList.remove('active'));
+  function step() {
+    if (i > 0) stages[i-1].classList.remove('active');
+    if (i < stages.length) {
+      stages[i].classList.add('active');
+      const data = pipelineData[i];
+      $('pipe-detail-name').textContent = data.name;
+      $('pipe-detail-name').style.color = data.color;
+      $('pipe-detail-body').textContent = data.desc;
+      $('pipe-detail-tag').textContent = data.tag;
+      $('pipe-detail-tag').style.color = data.color;
+      i++;
+      setTimeout(step, 600);
+    }
+  }
+  step();
+});
+
+// ════════════════════════════════════
+// INTERACTIVE 2 — COST ARBITRAGE CALCULATOR
+// ════════════════════════════════════
+function updateCostCalc() {
+  const calls = parseInt($('cost-calls').value);
+  const tokens = parseInt($('cost-tokens').value);
+  const simPct = parseInt($('cost-simple').value) / 100;
+  const medPct = parseInt($('cost-medium').value) / 100;
+  const premPct = Math.max(0, 1 - simPct - medPct);
+
+  $('cost-calls-val').textContent = calls.toLocaleString() + ' / day';
+  $('cost-tokens-val').textContent = tokens.toLocaleString() + ' tokens';
+  $('cost-simple-val').textContent = Math.round(simPct*100) + '%';
+  $('cost-medium-val').textContent = Math.round(medPct*100) + '%';
+
+  const PREMIUM_PRICE = 15; // $15/M tokens (GPT-4 class)
+  const LOW_PRICE = 0.8;    // $0.8/M tokens (Groq Llama class)
+  const FREE_PRICE = 0;
+
+  const totalTokens = calls * tokens;
+  const singleDaily = (totalTokens / 1e6) * PREMIUM_PRICE;
+  const arbDaily = (totalTokens * simPct / 1e6) * FREE_PRICE +
+                   (totalTokens * medPct / 1e6) * LOW_PRICE +
+                   (totalTokens * premPct / 1e6) * PREMIUM_PRICE;
+
+  $('single-daily').textContent = '$' + singleDaily.toFixed(2);
+  $('arb-daily').textContent = '$' + arbDaily.toFixed(2);
+
+  $('single-breakdown').innerHTML = `
+    <div class="cost-row-item"><span>All calls @ $${PREMIUM_PRICE}/M tokens</span><span>${(totalTokens/1e6).toFixed(1)}M tokens</span></div>`;
+
+  $('arb-breakdown').innerHTML = `
+    <div class="cost-row-item"><span>Free tier (${Math.round(simPct*100)}%)</span><span style="color:var(--good)">$0.00</span></div>
+    <div class="cost-row-item"><span>Low-cost (${Math.round(medPct*100)}%)</span><span>$${((totalTokens*medPct/1e6)*LOW_PRICE).toFixed(2)}</span></div>
+    <div class="cost-row-item"><span>Premium (${Math.round(premPct*100)}%)</span><span>$${((totalTokens*premPct/1e6)*PREMIUM_PRICE).toFixed(2)}</span></div>`;
+
+  const annualSavings = (singleDaily - arbDaily) * 365;
+  $('annual-savings').textContent = '$' + Math.round(annualSavings).toLocaleString();
+  $('savings-sub').textContent = `$${singleDaily.toFixed(2)}/day → $${arbDaily.toFixed(2)}/day · ${Math.round((1-arbDaily/singleDaily)*100)}% reduction`;
+}
+
+['cost-calls','cost-tokens','cost-simple','cost-medium'].forEach(id => {
+  $(id).addEventListener('input', updateCostCalc);
+});
+updateCostCalc();
+
+// ════════════════════════════════════
+// INTERACTIVE 3 — INFERENCE ROUTER
+// ════════════════════════════════════
+const providerDB = {
+  planning: {
+    free:     [['DeepSeek R1 (free)','FREE','~4s','best-free'],['Gemini 2.0 Flash Thinking','FREE','~3s',''],['Qwen3 235B (OpenRouter free)','FREE','~5s','']],
+    low:      [['DeepSeek R1','$0.55/M','~3s','recommended'],['Gemini 2.0 Flash','$0.10/M','~2s',''],['Groq Llama 3.3 70B','$0.59/M','~1s','']],
+    medium:   [['o3-mini','$1.1/M','~5s','recommended'],['DeepSeek R1','$0.55/M','~3s',''],['Gemini 2.0 Flash Thinking','$3.5/M','~4s','']],
+    any:      [['o3','$15/M','~8s','recommended'],['Claude 3.5 Sonnet','$3/M','~4s',''],['Gemini 2.0 Pro','$7/M','~5s','']],
+  },
+  coding: {
+    free:     [['DeepSeek Coder V3 (free)','FREE','~4s','recommended'],['Qwen2.5 Coder 32B','FREE','~3s',''],['CodeLlama (HuggingFace)','FREE','~6s','']],
+    low:      [['DeepSeek V3','$0.27/M','~2s','recommended'],['Groq Llama 3.1 70B','$0.59/M','~1s',''],['GitHub Models GPT-4o mini','FREE','~1.5s','']],
+    medium:   [['DeepSeek V3','$0.27/M','~2s','recommended'],['Claude 3.5 Haiku','$0.8/M','~2s',''],['Gemini 1.5 Flash','$0.075/M','~1.5s','']],
+    any:      [['Claude 3.5 Sonnet','$3/M','~4s','recommended'],['GPT-4o','$5/M','~3s',''],['DeepSeek V3','$0.27/M','~2s','']],
+  },
+  summarization: {
+    free:     [['Gemini 1.5 Flash (free)','FREE','~2s','recommended'],['Groq Llama 3.1 8B','FREE','~0.5s',''],['Cloudflare Workers AI','FREE','~1s','']],
+    low:      [['Gemini 1.5 Flash','$0.075/M','~1.5s','recommended'],['Groq Llama 3.3 70B','$0.59/M','~1s',''],['Together Llama 3.1 8B','$0.18/M','~1s','']],
+    medium:   [['Gemini 1.5 Pro','$1.25/M','~2s','recommended'],['Claude 3 Haiku','$0.25/M','~1.5s',''],['GPT-4o mini','$0.15/M','~1.5s','']],
+    any:      [['Claude 3.5 Sonnet','$3/M','~3s','recommended'],['GPT-4o','$5/M','~3s',''],['Gemini 1.5 Pro','$1.25/M','~2s','']],
+  },
+  vision: {
+    free:     [['Gemini 2.0 Flash (free)','FREE','~3s','recommended'],['Llava (HuggingFace)','FREE','~5s',''],['GitHub Models GPT-4o mini','FREE','~2s','']],
+    low:      [['Gemini 1.5 Flash','$0.075/M','~2s','recommended'],['GPT-4o mini','$0.15/M','~2s',''],['Claude 3 Haiku','$0.25/M','~2s','']],
+    medium:   [['GPT-4o','$5/M','~3s','recommended'],['Gemini 1.5 Pro','$1.25/M','~2.5s',''],['Claude 3.5 Sonnet','$3/M','~3s','']],
+    any:      [['GPT-4o','$5/M','~3s','recommended'],['Claude 3.5 Sonnet','$3/M','~3s',''],['Gemini 2.0 Pro','$7/M','~4s','']],
+  },
+  json: {
+    free:     [['Gemini 1.5 Flash (free)','FREE','~1.5s','recommended'],['Groq Llama 3.1 70B','FREE','~0.8s',''],['GitHub Models GPT-4o mini','FREE','~1s','']],
+    low:      [['GPT-4o mini','$0.15/M','~1.5s','recommended'],['Gemini 1.5 Flash','$0.075/M','~1.5s',''],['Groq Llama 3.3 70B','$0.59/M','~0.8s','']],
+    medium:   [['GPT-4o mini','$0.15/M','~1.5s','recommended'],['Claude 3.5 Haiku','$0.8/M','~2s',''],['Gemini 1.5 Flash','$0.075/M','~1.5s','']],
+    any:      [['GPT-4o','$5/M','~2s','recommended'],['Claude 3.5 Sonnet','$3/M','~3s',''],['Gemini 1.5 Pro','$1.25/M','~2s','']],
+  },
+  search: {
+    free:     [['Perplexity (limited free)','FREE','~4s','recommended'],['Gemini 2.0 Flash Search','FREE','~3s',''],['Brave Search API (free)','FREE','~2s','']],
+    low:      [['Perplexity Sonar','$1/M','~3s','recommended'],['Gemini 2.0 Flash Search','$0.10/M','~2.5s',''],['Tavily Search API','$0.01/call','~1.5s','']],
+    medium:   [['Perplexity Sonar Pro','$3/M','~4s','recommended'],['Gemini 2.0 Pro Search','$7/M','~3s',''],['Bing Web Search + GPT-4o mini','~$0.50/call','~2s','']],
+    any:      [['Perplexity Sonar Pro','$3/M','~4s','recommended'],['Gemini 2.0 Pro','$7/M','~4s',''],['Claude + Brave Search','~$1/call','~3s','']],
+  },
+  classification: {
+    free:     [['Cloudflare Workers AI','FREE','~0.3s','recommended'],['Groq Llama 3.1 8B','FREE','~0.4s',''],['HuggingFace Inference','FREE','~1s','']],
+    low:      [['Groq Llama 3.1 8B','$0.05/M','~0.4s','recommended'],['Gemini 1.5 Flash','$0.075/M','~1s',''],['Together Llama 3.1 8B','$0.18/M','~0.8s','']],
+    medium:   [['GPT-4o mini','$0.15/M','~1.5s','recommended'],['Gemini 1.5 Flash','$0.075/M','~1s',''],['Claude 3 Haiku','$0.25/M','~1.5s','']],
+    any:      [['GPT-4o mini','$0.15/M','~1.5s','recommended'],['Claude 3.5 Haiku','$0.8/M','~2s',''],['Gemini 1.5 Flash','$0.075/M','~1s','']],
+  },
+  embedding: {
+    free:     [['HuggingFace BAAI/bge','FREE','~0.2s','recommended'],['Cloudflare Workers AI embed','FREE','~0.3s',''],['Nomic Embed (free tier)','FREE','~0.5s','']],
+    low:      [['OpenAI text-embedding-3-small','$0.02/M','~0.3s','recommended'],['Gemini text-embedding','$0.025/M','~0.4s',''],['Cohere Embed','$0.10/M','~0.5s','']],
+    medium:   [['OpenAI text-embedding-3-large','$0.13/M','~0.4s','recommended'],['Cohere Embed v3','$0.10/M','~0.5s',''],['Gemini text-embedding-004','$0.025/M','~0.4s','']],
+    any:      [['OpenAI text-embedding-3-large','$0.13/M','~0.4s','recommended'],['Voyage AI embed','$0.06/M','~0.5s',''],['Cohere Embed v3','$0.10/M','~0.5s','']],
+  },
+};
+
+const costColors = { FREE:'rgba(34,197,94,0.15)', '$0':'rgba(34,197,94,0.15)', low:'rgba(0,212,255,0.10)', medium:'rgba(245,158,11,0.12)', high:'rgba(239,68,68,0.12)' };
+
+function updateRouter() {
+  const task = $('router-task').value;
+  const budget = $('router-budget').value;
+  const latency = $('router-latency').value;
+
+  let providers = providerDB[task]?.[budget] || providerDB[task]?.['medium'] || [];
+  if (latency === 'realtime') providers = providers.filter(p => parseFloat(p[2]) < 1.5).concat(providers.filter(p => parseFloat(p[2]) >= 1.5));
+
+  const container = $('router-providers');
+  container.innerHTML = '';
+  providers.forEach(([name, cost, lat, badge], i) => {
+    const row = document.createElement('div');
+    row.className = 'provider-row' + (badge === 'recommended' ? ' recommended' : '');
+    const bg = cost === 'FREE' ? costColors.FREE : cost.includes('0.') ? costColors.low : costColors.medium;
+    row.innerHTML = `
+      <div class="provider-rank">${i+1}</div>
+      <div class="provider-name">${name}</div>
+      <div class="provider-cost-tag" style="background:${bg};color:${cost==='FREE'?'var(--accent-3)':'var(--body)'};border:1px solid ${bg}">${cost}</div>
+      <div class="provider-latency">${lat}</div>
+      ${badge === 'recommended' ? '<div class="provider-badge">BEST FIT</div>' : ''}`;
+    container.appendChild(row);
+  });
+}
+
+['router-task','router-budget','router-latency'].forEach(id => $(id).addEventListener('change', updateRouter));
+updateRouter();
+
+// ════════════════════════════════════
+// INTERACTIVE 4 — CAPABILITY MATRIX
+// ════════════════════════════════════
+const matrixRows = [
+  { cap:'Planning', primary:'DeepSeek R1', backup:'Gemini 2.0 Flash Thinking', tier:'Low' },
+  { cap:'Coding', primary:'DeepSeek V3', backup:'Claude 3.5 Sonnet', tier:'Low' },
+  { cap:'Vision', primary:'GPT-4o', backup:'Gemini 1.5 Pro', tier:'Medium' },
+  { cap:'Search / Research', primary:'Perplexity Sonar', backup:'Gemini 2.0 Flash', tier:'Low' },
+  { cap:'Summarization', primary:'Gemini 1.5 Flash', backup:'Groq Llama 3.3 70B', tier:'Free' },
+  { cap:'JSON Extraction', primary:'GPT-4o mini', backup:'Gemini 1.5 Flash', tier:'Free' },
+  { cap:'Classification', primary:'Cloudflare Workers AI', backup:'Groq Llama 3.1 8B', tier:'Free' },
+  { cap:'Embeddings', primary:'text-embedding-3-small', backup:'HuggingFace BAAI/bge', tier:'Free' },
+  { cap:'Verification', primary:'Gemini 1.5 Flash', backup:'Groq Llama 3.1 8B', tier:'Free' },
+  { cap:'Long Context', primary:'Gemini 1.5 Pro (1M ctx)', backup:'Claude 3.5 Sonnet', tier:'Medium' },
+];
+
+const tierColors = { Free:'var(--accent-3)', Low:'var(--accent)', Medium:'var(--accent-warn)', High:'var(--accent-red)' };
+const matrixBody = document.getElementById('matrix-body');
+
+matrixRows.forEach((row, i) => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><span class="capability-label">${row.cap}</span></td>
+    <td><input class="matrix-select" data-row="${i}" data-col="primary" value="${row.primary}" style="background:transparent;border:1px solid var(--border);color:var(--body);padding:0.3rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;border-radius:4px;width:100%;outline:none;"></td>
+    <td><input class="matrix-select" data-row="${i}" data-col="backup" value="${row.backup}" style="background:transparent;border:1px solid var(--border);color:var(--body);padding:0.3rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;border-radius:4px;width:100%;outline:none;"></td>
+    <td><span style="font-family:'DM Mono',monospace;font-size:0.65rem;color:${tierColors[row.tier]||'var(--body)'};">${row.tier}</span></td>`;
+  matrixBody.appendChild(tr);
+  tr.querySelectorAll('input').forEach(inp => inp.addEventListener('change', e => {
+    matrixRows[i][e.target.dataset.col] = e.target.value;
+  }));
+});
+
+$('copy-matrix-btn').addEventListener('click', function() {
+  const json = JSON.stringify(matrixRows, null, 2);
+  copyText(json, this);
+});
+$('copy-matrix-md').addEventListener('click', function() {
+  let md = '| Capability | Primary | Backup | Cost Tier |\n|---|---|---|---|\n';
+  matrixRows.forEach(r => { md += `| ${r.cap} | ${r.primary} | ${r.backup} | ${r.tier} |\n`; });
+  copyText(md, this);
+});
+
+// ════════════════════════════════════
+// INTERACTIVE 5 — PROMPT HARNESS (AI-powered)
+// ════════════════════════════════════
+$('harness-run-btn').addEventListener('click', async () => {
+  const prompt = $('harness-prompt').value.trim();
+  if (!prompt) return;
+  const btn = $('harness-run-btn');
+  btn.disabled = true; btn.textContent = '⟳ Running…';
+  $('harness-status').textContent = 'Evaluating across two provider configurations…';
+  $('output-a').textContent = 'Generating…'; $('output-a').style.color = 'var(--muted)';
+  $('output-b').textContent = 'Generating…'; $('output-b').style.color = 'var(--muted)';
+
+  const t0 = Date.now();
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: `You are a prompt harness evaluator. Given a prompt, simulate how two different model configurations would respond and score them.
+
+Return ONLY a JSON object, no preamble:
+{
+  "modelA": {"name": "Gemini Flash (free)", "response": "a realistic 2-3 sentence response to the prompt", "correctness": 0-100, "completeness": 0-100, "latency_ms": number, "cost_per_call": "$0.000X"},
+  "modelB": {"name": "GPT-4o (premium)", "response": "a realistic 2-3 sentence response that may be more detailed", "correctness": 0-100, "completeness": 0-100, "latency_ms": number, "cost_per_call": "$0.0XXX"},
+  "winner": "A or B",
+  "recommendation": "one sentence on which to use and why"
+}
+
+PROMPT TO EVALUATE: ${prompt}`
+        }]
+      })
+    });
+    const data = await resp.json();
+    const raw = data.content.map(c=>c.text||'').join('');
+    const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    const t1 = Date.now();
+
+    $('output-a').textContent = parsed.modelA.response; $('output-a').style.color = 'var(--body)';
+    $('output-b').textContent = parsed.modelB.response; $('output-b').style.color = 'var(--body)';
+
+    const scoreA = Math.round((parsed.modelA.correctness + parsed.modelA.completeness) / 2);
+    const scoreB = Math.round((parsed.modelB.correctness + parsed.modelB.completeness) / 2);
+    $('score-a').textContent = scoreA + '/100';
+    $('score-a').style.color = scoreA > 80 ? 'var(--accent-3)' : scoreA > 60 ? 'var(--accent-warn)' : 'var(--accent-red)';
+    $('score-b').textContent = scoreB + '/100';
+    $('score-b').style.color = scoreB > 80 ? 'var(--accent-3)' : scoreB > 60 ? 'var(--accent-warn)' : 'var(--accent-red)';
+
+    $('harness-winner').textContent = parsed.winner === 'A' ? parsed.modelA.name : parsed.modelB.name;
+    $('latency-a').textContent = parsed.modelA.latency_ms + 'ms';
+    $('latency-b').textContent = parsed.modelB.latency_ms + 'ms';
+    $('harness-rec').textContent = parsed.recommendation;
+    $('harness-metrics').style.display = 'flex';
+    $('harness-status').textContent = `Evaluation complete in ${t1-t0}ms`;
+  } catch(e) {
+    $('output-a').textContent = 'Error — check API connection';
+    $('output-a').style.color = 'var(--accent-red)';
+  }
+  btn.disabled = false; btn.textContent = '▶ Run Harness';
+});
+
+// ════════════════════════════════════
+// INTERACTIVE 6 — MULTI-MODEL ROLE ASSIGNER
+// ════════════════════════════════════
+const agentRoles = [
+  { name:'PLANNER', options:[['o3-mini (reasoning)','$1.1/M','low'],['DeepSeek R1 (free)','FREE','free'],['Gemini Thinking Flash','$3.5/M','med']], default:0 },
+  { name:'RESEARCHER', options:[['Perplexity Sonar','$1/M','low'],['Gemini Flash Search','FREE','free'],['Perplexity Pro','$3/M','med']], default:0 },
+  { name:'CODER', options:[['DeepSeek V3','$0.27/M','low'],['DeepSeek Coder (free)','FREE','free'],['Claude 3.5 Sonnet','$3/M','med']], default:0 },
+  { name:'CRITIC', options:[['Gemini 1.5 Flash','FREE','free'],['GPT-4o mini','$0.15/M','low'],['Claude 3.5 Sonnet','$3/M','med']], default:0 },
+  { name:'VERIFIER', options:[['Groq Llama 3.3 70B','FREE','free'],['Gemini 1.5 Flash','$0.075/M','low'],['GPT-4o mini','$0.15/M','low']], default:0 },
+  { name:'SYNTHESIZER', options:[['Gemini 1.5 Pro','$1.25/M','med'],['Claude 3.5 Sonnet','$3/M','med'],['GPT-4o','$5/M','high']], default:0 },
+  { name:'MEMORY AGENT', options:[['No inference needed','FREE','free'],['Gemini Flash (compression)','FREE','free'],['GPT-4o mini','$0.15/M','low']], default:0 },
+];
+
+const costPerRole = [0.001, 0.001, 0.00027, 0, 0, 0.00125, 0];
+const roleSelections = agentRoles.map(r => r.default);
+const rolePricePer1k = [[0.0011, 0, 0.0035],[0.001, 0, 0.003],[0.00027, 0, 0.003],[0, 0.00015, 0.003],[0, 0.000075, 0.00015],[0.00125, 0.003, 0.005],[0, 0, 0.00015]];
+const singleModelCostPer1k = 0.005;
+
+const tierColorMap = { free:'rgba(34,197,94,0.12)', low:'rgba(0,212,255,0.10)', med:'rgba(245,158,11,0.10)', high:'rgba(239,68,68,0.10)' };
+const tierTextMap = { free:'var(--accent-3)', low:'var(--accent)', med:'var(--accent-warn)', high:'var(--accent-red)' };
+
+const roleGrid = $('role-assigner-grid');
+agentRoles.forEach((role, i) => {
+  const row = document.createElement('div');
+  row.className = 'role-row';
+  const sel = document.createElement('select');
+  sel.className = 'role-select';
+  role.options.forEach((opt,j) => {
+    const o = document.createElement('option');
+    o.value = j; o.textContent = opt[0];
+    sel.appendChild(o);
+  });
+  sel.value = role.default;
+  const costPill = document.createElement('div');
+  costPill.className = 'role-cost-pill';
+
+  function updatePill() {
+    const idx = parseInt(sel.value);
+    const opt = role.options[idx];
+    roleSelections[i] = idx;
+    costPill.textContent = opt[1];
+    costPill.style.background = tierColorMap[opt[2]];
+    costPill.style.color = tierTextMap[opt[2]];
+    costPill.style.border = '1px solid ' + tierColorMap[opt[2]];
+    updateRoleTotal();
+  }
+  sel.addEventListener('change', updatePill);
+
+  row.innerHTML = `<div class="role-name">${role.name}</div>`;
+  row.appendChild(sel);
+  row.appendChild(costPill);
+  roleGrid.appendChild(row);
+  updatePill();
+});
+
+function updateRoleTotal() {
+  const total = agentRoles.reduce((sum, role, i) => sum + (rolePricePer1k[i]?.[roleSelections[i]] || 0), 0) * 1000;
+  $('role-total').textContent = '$' + total.toFixed(3);
+  $('role-vs').textContent = `vs. $${(singleModelCostPer1k * 1000).toFixed(2)} single-model equivalent`;
+}
+
+$('copy-roles-btn').addEventListener('click', function() {
+  let config = 'AGENT_ROLES = {\n';
+  agentRoles.forEach((role, i) => {
+    const opt = role.options[roleSelections[i]];
+    config += `  "${role.name}": "${opt[0]}", // ${opt[1]}\n`;
+  });
+  config += '}';
+  copyText(config, this);
+});
+
+// ════════════════════════════════════
+// INTERACTIVE 7 — SYSTEM PROMPT ARCHITECT
+// ════════════════════════════════════
+const syspmLayers = [
+  { key:'identity', label:'Identity Layer', hint:'Who am I?', placeholder:'You are a senior AI systems architect specialising in model-agnostic orchestration pipelines…' },
+  { key:'objective', label:'Objective Layer', hint:'What am I optimising?', placeholder:'Your goal is to decompose user goals into executable task graphs with clear success criteria…' },
+  { key:'constraints', label:'Constraints Layer', hint:'What must never happen?', placeholder:'Never fabricate citations. Never output code without error handling. Never exceed 3 tool calls without verifying results…' },
+  { key:'context', label:'Context Layer', hint:'What information exists?', placeholder:'Current project: [PROJECT_NAME]. Team size: [N]. Technology stack: [STACK]. Deadline: [DATE]…' },
+  { key:'tools', label:'Tool Layer', hint:'What capabilities exist?', placeholder:'Available tools: web_search, code_executor, file_reader, database_query, api_caller…' },
+  { key:'output', label:'Output Layer', hint:'Desired structure and format', placeholder:'Return responses as structured JSON with keys: reasoning, action, confidence, next_steps…' },
+  { key:'evaluation', label:'Evaluation Layer', hint:'How do I know success?', placeholder:'Success = task completed within budget, output passes verification, no unresolved unknowns remain…' },
+];
+
+const syspmValues = {};
+const syspmLayersEl = $('syspm-layers');
+
+syspmLayers.forEach(layer => {
+  const div = document.createElement('div');
+  div.className = 'syspm-layer';
+  div.innerHTML = `
+    <div class="syspm-layer-header">
+      <div class="syspm-layer-label">${layer.label}</div>
+      <div class="syspm-layer-hint">${layer.hint}</div>
+    </div>
+    <textarea class="syspm-textarea" data-key="${layer.key}" placeholder="${layer.placeholder}"></textarea>`;
+  div.querySelector('textarea').addEventListener('input', e => { syspmValues[layer.key] = e.target.value.trim(); });
+  syspmLayersEl.appendChild(div);
+});
+
+$('syspm-generate-btn').addEventListener('click', () => {
+  let output = '';
+  syspmLayers.forEach(layer => {
+    const val = syspmValues[layer.key];
+    if (val) output += `## ${layer.label.toUpperCase()}\n${val}\n\n`;
+  });
+  if (!output) { output = '// Fill in at least one layer to generate your system prompt'; }
+  const outEl = $('syspm-output');
+  $('syspm-output-text').textContent = output.trim();
+  outEl.classList.add('show');
+  $('syspm-copy-btn').style.display = 'inline-block';
+});
+
+$('syspm-output-copy').addEventListener('click', function() {
+  copyText($('syspm-output-text').textContent, this);
+});
+$('syspm-copy-btn').addEventListener('click', function() {
+  copyText($('syspm-output-text').textContent, this);
+});
+
+// ════════════════════════════════════
+// INTERACTIVE 8 — PROMPT PATTERN LIBRARY
+// ════════════════════════════════════
+const promptPatterns = [
+  { name:'Planner', cat:'planning', catColor:'#7c3aed', desc:'Decomposes a goal into a task graph with dependencies and success criteria.', template:`You are a planning agent. Given a goal, decompose it into:
+1. OBJECTIVES: What must be true when done
+2. SUBTASKS: Ordered list with dependencies  
+3. RISKS: What could go wrong
+4. UNKNOWNS: What information is missing
+5. SUCCESS_CRITERIA: How to verify completion
+
+Goal: {GOAL}` },
+  { name:'Critic', cat:'planning', catColor:'#7c3aed', desc:'Evaluates a plan or output for logical flaws, missing steps, and risks.', template:`You are a critical evaluator. Review the following and identify:
+- FLAWS: Logical errors or unsupported claims
+- GAPS: Missing requirements or steps
+- RISKS: What could fail and why
+- IMPROVEMENTS: Specific changes to make
+
+Input to review: {INPUT}` },
+  { name:'Execution', cat:'execution', catColor:'#00d4ff', desc:'Executes a specific subtask with full context and output schema.', template:`CONTEXT: {CONTEXT}
+TASK: {TASK}
+CONSTRAINTS: {CONSTRAINTS}
+OUTPUT_FORMAT: {SCHEMA}
+
+Execute the task. Return only the requested format.` },
+  { name:'Verifier', cat:'verification', catColor:'#22c55e', desc:'Checks output against requirements and flags any failures.', template:`Verify the following output against these requirements.
+
+REQUIREMENTS: {REQUIREMENTS}
+OUTPUT: {OUTPUT}
+
+Check:
+- [ ] All requirements addressed
+- [ ] No unsupported claims
+- [ ] Output format valid
+- [ ] No obvious errors
+
+Return: {passed: bool, failures: [], confidence: 0-1}` },
+  { name:'Repair', cat:'verification', catColor:'#22c55e', desc:'Diagnoses what went wrong and generates a targeted fix.', template:`The following output failed verification.
+
+ORIGINAL_TASK: {TASK}
+FAILED_OUTPUT: {OUTPUT}
+FAILURES: {FAILURES}
+
+Diagnose the root cause and produce a corrected output that passes all requirements.` },
+  { name:'Summarizer', cat:'synthesis', catColor:'#f59e0b', desc:'Distills long content into structured key points.', template:`Summarize the following into:
+HEADLINE: One sentence (max 20 words)
+KEY_POINTS: 3-5 bullet points
+DECISIONS: Any decisions made
+NEXT_ACTIONS: Required follow-up
+
+Content: {CONTENT}` },
+  { name:'Extractor', cat:'execution', catColor:'#00d4ff', desc:'Extracts structured data from unstructured text.', template:`Extract the following fields from the text below.
+
+FIELDS: {FIELDS}
+FORMAT: Return as JSON only. No preamble.
+NULL_HANDLING: Use null for missing fields.
+
+Text: {TEXT}` },
+  { name:'Classifier', cat:'execution', catColor:'#00d4ff', desc:'Classifies input into predefined categories with confidence.', template:`Classify the following input into exactly one category.
+
+CATEGORIES: {CATEGORIES}
+RULES: {RULES}
+
+Input: {INPUT}
+
+Return: {category: string, confidence: 0-1, reasoning: string}
+Return JSON only.` },
+  { name:'Compressor', cat:'synthesis', catColor:'#f59e0b', desc:'Compresses conversation history into structured memory.', template:`Extract from the conversation below only:
+- DECISIONS: Choices made and why
+- ASSUMPTIONS: Unstated beliefs in play
+- TODOS: Unfinished items
+- CONSTRAINTS: Limits that apply  
+- PREFERENCES: How things should be done
+- OPEN_QUESTIONS: Unresolved issues
+
+Ignore: pleasantries, redundant info, resolved items.
+
+Conversation: {CONVERSATION}` },
+  { name:'Researcher', cat:'execution', catColor:'#00d4ff', desc:'Conducts structured research with source requirements.', template:`Research the following question and return a structured report.
+
+QUESTION: {QUESTION}
+DEPTH: {DEPTH}
+REQUIRED_SOURCES: {N} minimum
+OUTPUT_FORMAT: {FORMAT}
+
+For each claim, cite your source. Flag uncertain information with [UNVERIFIED].` },
+  { name:'Transformer', cat:'synthesis', catColor:'#f59e0b', desc:'Converts content from one format or style to another.', template:`Transform the following content.
+
+FROM_FORMAT: {FROM}
+TO_FORMAT: {TO}
+PRESERVE: {WHAT_TO_KEEP}
+ADAPT: {WHAT_TO_CHANGE}
+
+Content: {CONTENT}
+
+Return only the transformed output.` },
+  { name:'Ranker', cat:'synthesis', catColor:'#f59e0b', desc:'Ranks a list of options against weighted criteria.', template:`Rank the following options against these criteria.
+
+OPTIONS: {OPTIONS}
+CRITERIA: {CRITERIA}
+WEIGHTS: {WEIGHTS}
+
+Return a ranked list with:
+- RANK: Position
+- SCORE: Weighted total
+- RATIONALE: One sentence per option` },
+  { name:'Brainstormer', cat:'planning', catColor:'#7c3aed', desc:'Generates diverse ideas with no premature filtering.', template:`Generate {N} diverse ideas for the following challenge.
+
+CHALLENGE: {CHALLENGE}
+CONSTRAINTS: {CONSTRAINTS}
+DIVERSITY_RULE: Make each idea meaningfully different
+
+For each idea: NAME | CORE_MECHANISM | WHY_IT_MIGHT_WORK
+Do not filter or evaluate — generate only.` },
+  { name:'Debater', cat:'verification', catColor:'#22c55e', desc:'Steelmans the strongest opposing argument.', template:`Construct the strongest possible argument AGAINST the following position.
+
+POSITION: {POSITION}
+
+Rules:
+- Steelman, don't strawman
+- Use the best available evidence
+- Identify the position's most vulnerable assumption
+- Return: BEST_COUNTER_ARGUMENT + FATAL_ASSUMPTION` },
+  { name:'Teacher', cat:'synthesis', catColor:'#f59e0b', desc:'Explains a concept at the right level with examples.', template:`Explain the following concept to a {AUDIENCE_LEVEL} audience.
+
+CONCEPT: {CONCEPT}
+PRIOR_KNOWLEDGE: {WHAT_THEY_KNOW}
+FORMAT: Use one analogy, one concrete example, and one common misconception to correct.
+LENGTH: {MAX_WORDS} words maximum` },
+  { name:'Simulator', cat:'planning', catColor:'#7c3aed', desc:'Simulates how a decision plays out across scenarios.', template:`Simulate how the following decision plays out across three scenarios.
+
+DECISION: {DECISION}
+SCENARIOS: Best case | Realistic | Worst case
+
+For each: OUTCOME | PROBABILITY | KEY_DRIVER | WHAT_TO_WATCH` },
+  { name:'Reflector', cat:'verification', catColor:'#22c55e', desc:'Evaluates past actions for lessons and patterns.', template:`Reflect on the following work or decision.
+
+INPUT: {INPUT}
+QUESTIONS:
+- What worked well and why?
+- What would you do differently?
+- What pattern does this reveal?
+- What should be remembered for next time?
+
+Return structured lessons, not a narrative.` },
+  { name:'Consensus', cat:'synthesis', catColor:'#f59e0b', desc:'Synthesizes multiple conflicting perspectives into a unified position.', template:`Synthesize the following conflicting viewpoints into a coherent position.
+
+VIEWPOINTS: {VIEWPOINTS}
+
+Return:
+- COMMON_GROUND: What all parties agree on
+- CORE_TENSION: The real disagreement
+- SYNTHESIS: A position that addresses all concerns
+- REMAINING_GAPS: What still needs resolving` },
+  { name:'Decision', cat:'planning', catColor:'#7c3aed', desc:'Structures a decision with tradeoffs, criteria, and recommendation.', template:`Structure the following decision.
+
+DECISION: {DECISION}
+OPTIONS: {OPTIONS}
+CRITERIA: {CRITERIA}
+CONSTRAINTS: {CONSTRAINTS}
+
+Return:
+- ANALYSIS: Each option against each criterion
+- TRADEOFFS: What you gain and lose with each
+- RECOMMENDATION: Best option with rationale
+- CONFIDENCE: 0-10 with key uncertainty` },
+  { name:'Evaluator', cat:'verification', catColor:'#22c55e', desc:'Scores output against a rubric with actionable feedback.', template:`Evaluate the following output against this rubric.
+
+OUTPUT: {OUTPUT}
+RUBRIC:
+  Correctness: /30
+  Completeness: /25
+  Clarity: /20
+  Format: /15
+  Efficiency: /10
+
+For each dimension: SCORE | EVIDENCE | IMPROVEMENT
+Return total score and top 3 improvements.` },
+];
+
+const patternGrid = $('pattern-grid');
+promptPatterns.forEach(p => {
+  const card = document.createElement('div');
+  card.className = 'pattern-card'; card.dataset.filter = p.cat;
+  card.innerHTML = `
+    <div class="pattern-cat" style="color:${p.catColor}">${p.cat.toUpperCase()}</div>
+    <div class="pattern-name">${p.name}</div>
+    <div class="pattern-desc">${p.desc}</div>
+    <div class="pattern-template">${p.template.slice(0,120)}…</div>
+    <button class="copy-btn" data-template="${encodeURIComponent(p.template)}">Copy Template</button>`;
+  card.querySelector('.copy-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    copyText(decodeURIComponent(this.dataset.template), this);
+  });
+  patternGrid.appendChild(card);
+});
+
+$('pattern-filter-row').addEventListener('click', e => {
+  const btn = e.target.closest('[data-filter]');
+  if (!btn) return;
+  document.querySelectorAll('#pattern-filter-row .pill-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const f = btn.dataset.filter;
+  document.querySelectorAll('#pattern-grid .pattern-card').forEach(c => {
+    c.classList.toggle('hidden', f !== 'all' && c.dataset.filter !== f);
+  });
+});
+
+// ════════════════════════════════════
+// INTERACTIVE 9 — CONTEXT COMPRESSION (AI-powered)
+// ════════════════════════════════════
+let compressedData = null;
+
+$('compress-run-btn').addEventListener('click', async () => {
+  const input = $('compress-input').value.trim();
+  if (!input) return;
+  const btn = $('compress-run-btn');
+  btn.disabled = true; btn.textContent = '⟳ Compressing…';
+  $('compress-status').textContent = 'Extracting signal from noise…';
+  $('compress-output').innerHTML = '';
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 800,
+        messages: [{
+          role: 'user',
+          content: `You are a context compression agent. Extract structured memory from the following text.
+
+Return ONLY a JSON object, no preamble, no markdown:
+{
+  "decisions": ["list of decisions made"],
+  "assumptions": ["list of unstated assumptions in play"],
+  "todos": ["list of unfinished items or next actions"],
+  "constraints": ["list of limits, rules, or requirements"],
+  "preferences": ["how things should be done"],
+  "open_questions": ["unresolved issues that need answers"],
+  "key_facts": ["important facts to remember"]
+}
+
+Include only non-empty arrays. Omit categories with no content.
+
+TEXT TO COMPRESS:
+${input.slice(0, 3000)}`
+        }]
+      })
+    });
+    const data = await resp.json();
+    const raw = data.content.map(c=>c.text||'').join('');
+    const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    compressedData = parsed;
+
+    const fieldLabels = {
+      decisions:'DECISIONS',assumptions:'ASSUMPTIONS',todos:'TODOS',
+      constraints:'CONSTRAINTS',preferences:'PREFERENCES',
+      open_questions:'OPEN QUESTIONS',key_facts:'KEY FACTS'
+    };
+
+    const container = $('compress-output');
+    container.innerHTML = '';
+    Object.entries(parsed).forEach(([key, vals], i) => {
+      if (!vals || !vals.length) return;
+      const div = document.createElement('div');
+      div.className = 'compression-field';
+      div.innerHTML = `<div class="compression-field-key">${fieldLabels[key]||key.toUpperCase()}</div>
+        <div class="compression-field-val">${vals.map(v=>'• '+v).join('\n')}</div>`;
+      container.appendChild(div);
+      setTimeout(() => div.classList.add('show'), i * 100);
+    });
+
+    $('compress-copy-row').style.display = 'block';
+    $('compress-status').textContent = `Compressed ${input.split(/\s+/).length} words → structured memory`;
+  } catch(e) {
+    $('compress-status').textContent = 'Error — check API connection';
+  }
+  btn.disabled = false; btn.textContent = '⟳ Compress';
+});
+
+$('compress-copy-btn').addEventListener('click', function() {
+  if (!compressedData) return;
+  let txt = '';
+  Object.entries(compressedData).forEach(([k,v]) => {
+    if(v&&v.length) txt += `${k.toUpperCase()}:\n${v.map(i=>'  - '+i).join('\n')}\n\n`;
+  });
+  copyText(txt.trim(), this);
+});
+</script>
+</body>
+</html>
