@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Context Engineering — Reducing Uncertainty, Not Adding Information</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,700;1,9..144,300;1,9..144,400&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080b10;
+      --surface: #0c1018;
+      --surface-2: #101520;
+      --border: #1a2030;
+      --border-bright: #232d40;
+      --accent: #4f8ef7;
+      --accent-2: #34d4a0;
+      --accent-3: #f5a623;
+      --accent-red: #f76a6a;
+      --accent-purple: #a78bfa;
+      --accent-dim: rgba(79,142,247,0.10);
+      --accent-glow: rgba(79,142,247,0.25);
+      --headline: #e8eef8;
+      --body: #8fa0b8;
+      --muted: #4a5568;
+      --good: #34d4a0;
+      --warn: #f5a623;
+      --bad: #f76a6a;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--body);
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      line-height: 1.75;
+      overflow-x: hidden;
+    }
+
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999;
+    }
+
+    #progress-bar {
+      position: fixed; top: 0; left: 0;
+      height: 2px; width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      z-index: 9998; box-shadow: 0 0 10px var(--accent-glow);
+      transition: width 0.1s linear;
+    }
+
+    #cursor-glow {
+      position: fixed; width: 400px; height: 400px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(79,142,247,0.04) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+      transform: translate(-50%,-50%);
+      transition: left 0.07s, top 0.07s;
+    }
+
+    .wrapper {
+      max-width: 820px; margin: 0 auto;
+      padding: 4rem 2rem 10rem;
+      position: relative; z-index: 1;
+    }
+
+    .back-link {
+      font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      color: var(--muted); text-decoration: none; letter-spacing: 0.08em;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--accent); }
+
+    /* ── HEADER ── */
+    .essay-header { margin-top: 4rem; padding-bottom: 2.5rem; border-bottom: 1px solid var(--border); }
+
+    .eyebrow {
+      font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--accent);
+      letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 1.25rem;
+      opacity: 0; transform: translateY(8px);
+      animation: fadeUp 0.5s ease forwards 0.1s;
+    }
+
+    h1.essay-title {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(2rem, 5.5vw, 3.1rem);
+      font-weight: 300; color: var(--headline);
+      line-height: 1.1; letter-spacing: -0.025em; margin-bottom: 0.75rem;
+      opacity: 0; transform: translateY(14px);
+      animation: fadeUp 0.65s ease forwards 0.22s;
+    }
+    h1.essay-title em { font-style: italic; color: var(--accent-2); }
+
+    .subtitle {
+      font-family: 'Fraunces', serif; font-size: 1.05rem;
+      color: var(--muted); font-style: italic; font-weight: 300;
+      margin-bottom: 1.5rem;
+      opacity: 0; transform: translateY(10px);
+      animation: fadeUp 0.6s ease forwards 0.35s;
+    }
+
+    .meta {
+      font-family: 'DM Mono', monospace; font-size: 0.7rem;
+      color: var(--muted); letter-spacing: 0.08em;
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      opacity: 0; animation: fadeUp 0.5s ease forwards 0.5s;
+    }
+
+    .meta-pill {
+      background: var(--accent-dim); border: 1px solid var(--accent);
+      color: var(--accent); padding: 0.18rem 0.6rem;
+      border-radius: 3px; font-size: 0.62rem; letter-spacing: 0.1em;
+    }
+
+    /* ── REVEAL ── */
+    .reveal {
+      opacity: 0; transform: translateY(22px);
+      transition: opacity 0.65s ease, transform 0.65s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── TYPE ── */
+    .lede {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(1.15rem, 2.5vw, 1.3rem);
+      color: var(--headline); line-height: 1.8;
+      margin-top: 2.5rem; font-weight: 300;
+    }
+
+    .essay-body p {
+      font-size: 1.02rem; color: var(--body); line-height: 1.88; margin-bottom: 1.75rem;
+    }
+    strong { color: var(--headline); font-weight: 500; }
+
+    .section-label {
+      display: flex; align-items: center; gap: 0.75rem;
+      margin: 3.5rem 0 1.75rem;
+    }
+    .section-label span {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--accent);
+      letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap;
+    }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .pullquote {
+      margin: 3rem 0; padding: 1.25rem 0 1.25rem 2rem;
+      border-left: 2px solid transparent;
+      background: linear-gradient(var(--bg), var(--bg)) padding-box,
+                  linear-gradient(180deg, var(--accent), var(--accent-2)) border-box;
+    }
+    .pullquote p {
+      font-family: 'Fraunces', serif; font-style: italic;
+      font-size: clamp(1.1rem, 2.5vw, 1.3rem);
+      color: var(--headline); line-height: 1.6; margin: 0;
+    }
+
+    .analogy-card {
+      background: var(--surface); border: 1px solid var(--border-bright);
+      border-radius: 10px; padding: 1.5rem 1.75rem;
+      margin: 2rem 0; position: relative; overflow: hidden;
+    }
+    .analogy-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at top left, var(--accent-dim), transparent 70%);
+      pointer-events: none;
+    }
+    .analogy-tag {
+      font-family: 'DM Mono', monospace; font-size: 0.63rem; color: var(--accent-2);
+      letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.65rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .analogy-tag::before { content: '◆'; font-size: 0.45rem; }
+    .analogy-card p { font-size: 0.97rem; color: var(--body); line-height: 1.8; margin: 0; }
+    .analogy-card p em { color: var(--headline); font-style: normal; font-weight: 500; }
+
+    /* ── WIDGET SHELL ── */
+    .widget {
+      background: var(--surface); border: 1px solid var(--border-bright);
+      border-radius: 12px; overflow: hidden; margin: 2.5rem 0;
+    }
+    .widget-header {
+      padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap;
+    }
+    .widget-label {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--muted); letter-spacing: 0.09em; text-transform: uppercase;
+    }
+    .widget-body { padding: 1.5rem; }
+
+    /* ── BUTTONS / TOGGLES ── */
+    .toggle-group {
+      display: flex; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+    }
+    .toggle-btn {
+      font-family: 'DM Mono', monospace; font-size: 0.65rem;
+      padding: 0.35rem 0.85rem; border: none;
+      background: transparent; color: var(--muted);
+      cursor: pointer; letter-spacing: 0.06em; transition: all 0.2s;
+    }
+    .toggle-btn.active { background: var(--accent); color: #fff; }
+
+    .pill-btn {
+      font-family: 'DM Mono', monospace; font-size: 0.63rem;
+      padding: 0.3rem 0.75rem; border-radius: 5px;
+      border: 1px solid var(--border-bright); background: transparent;
+      color: var(--muted); cursor: pointer; letter-spacing: 0.06em;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .pill-btn:hover, .pill-btn.active {
+      border-color: var(--accent); color: var(--accent); background: var(--accent-dim);
+    }
+
+    .run-btn {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      padding: 0.5rem 1.1rem; border-radius: 6px;
+      background: var(--accent); color: #fff;
+      border: none; cursor: pointer; letter-spacing: 0.07em;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .run-btn:hover { filter: brightness(1.15); }
+    .run-btn:disabled { opacity: 0.45; cursor: default; }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 1 — CONTEXT DEBT DECAYER
+    ════════════════════════════════════ */
+    .debt-timeline {
+      display: flex; flex-direction: column; gap: 0.5rem;
+      padding: 0.5rem 0;
+    }
+    .debt-entry {
+      display: flex; align-items: center; gap: 0.85rem;
+      padding: 0.6rem 0.85rem; border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      transition: all 0.5s ease;
+    }
+    .debt-entry.stale {
+      border-color: rgba(247,106,106,0.3);
+      background: rgba(247,106,106,0.04);
+    }
+    .debt-entry.fresh {
+      border-color: rgba(52,212,160,0.3);
+      background: rgba(52,212,160,0.04);
+    }
+    .debt-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      flex-shrink: 0; transition: background 0.5s;
+    }
+    .debt-fresh .debt-dot { background: var(--good); }
+    .debt-warn .debt-dot { background: var(--warn); }
+    .debt-bad .debt-dot { background: var(--bad); }
+
+    .debt-text {
+      flex: 1; font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      color: var(--body); letter-spacing: 0.03em; transition: color 0.5s;
+    }
+    .debt-entry.stale .debt-text { color: var(--bad); text-decoration: line-through; opacity: 0.7; }
+
+    .debt-age {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--muted); white-space: nowrap;
+    }
+
+    .debt-quality-bar {
+      margin-top: 1.25rem; padding: 1rem;
+      background: var(--surface-2); border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .debt-quality-label {
+      font-family: 'DM Mono', monospace; font-size: 0.65rem;
+      color: var(--muted); letter-spacing: 0.08em; margin-bottom: 0.6rem;
+      display: flex; justify-content: space-between;
+    }
+    .debt-bar-track {
+      height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
+    }
+    .debt-bar-fill {
+      height: 100%; border-radius: 4px;
+      transition: width 0.7s cubic-bezier(0.22,1,0.36,1), background 0.7s;
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 2 — SCOPE FRAMEWORK BUILDER
+    ════════════════════════════════════ */
+    .scope-grid {
+      display: grid; gap: 0.85rem;
+    }
+    .scope-row {
+      display: grid; grid-template-columns: 36px 110px 1fr; gap: 0.75rem;
+      align-items: center;
+    }
+    @media (max-width:560px) {
+      .scope-row { grid-template-columns: 28px 90px 1fr; gap: 0.5rem; }
+    }
+    .scope-letter {
+      font-family: 'Fraunces', serif; font-size: 1.5rem;
+      color: var(--accent); font-weight: 700; line-height: 1; text-align: center;
+    }
+    .scope-label {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--muted); letter-spacing: 0.07em; text-transform: uppercase;
+    }
+    .scope-input {
+      background: var(--surface-2); border: 1px solid var(--border-bright);
+      border-radius: 6px; padding: 0.55rem 0.85rem;
+      font-family: 'DM Mono', monospace; font-size: 0.76rem;
+      color: var(--headline); outline: none; width: 100%;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .scope-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-dim);
+    }
+    .scope-input::placeholder { color: var(--muted); }
+
+    .scope-score-wrap {
+      margin-top: 1.25rem; padding: 1rem 1.25rem;
+      background: var(--surface-2); border-radius: 8px;
+      border: 1px solid var(--border);
+      display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+    }
+    .scope-score-val {
+      font-family: 'Fraunces', serif; font-size: 2.5rem;
+      line-height: 1; transition: color 0.4s;
+    }
+    .scope-score-label {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .scope-dots {
+      display: flex; gap: 0.4rem; flex: 1; justify-content: flex-end;
+    }
+    .scope-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--border-bright); transition: background 0.3s;
+    }
+    .scope-dot.filled { background: var(--accent-2); box-shadow: 0 0 6px var(--accent-2); }
+
+    .scope-preview {
+      margin-top: 1.25rem; padding: 1rem;
+      background: var(--surface-2); border-radius: 8px;
+      border: 1px solid var(--border); display: none;
+    }
+    .scope-preview.show { display: block; }
+    .scope-preview-label {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--accent); letter-spacing: 0.1em; margin-bottom: 0.6rem;
+    }
+    .scope-preview-text {
+      font-family: 'DM Mono', monospace; font-size: 0.74rem;
+      color: var(--body); line-height: 1.8; white-space: pre-wrap;
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 3 — CONTEXT LAYER STACK
+    ════════════════════════════════════ */
+    .layer-stack-visual {
+      position: relative; min-height: 280px;
+      display: flex; flex-direction: column; gap: 0.5rem;
+      padding: 0.5rem;
+    }
+    .layer-block {
+      border-radius: 8px; padding: 1rem 1.25rem;
+      border: 1px solid var(--border);
+      cursor: pointer; position: relative; overflow: hidden;
+      transition: all 0.3s ease;
+      opacity: 0.4;
+    }
+    .layer-block.active {
+      opacity: 1;
+      border-color: var(--layer-c);
+      background: color-mix(in srgb, var(--layer-c) 8%, var(--surface-2));
+      box-shadow: 0 0 20px color-mix(in srgb, var(--layer-c) 15%, transparent);
+    }
+    .layer-block-header {
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .layer-icon {
+      font-size: 1rem; width: 28px; text-align: center;
+    }
+    .layer-name {
+      font-family: 'Fraunces', serif; font-size: 1rem;
+      color: var(--headline); font-weight: 400;
+    }
+    .layer-tag {
+      margin-left: auto; font-family: 'DM Mono', monospace;
+      font-size: 0.6rem; color: var(--layer-c);
+      letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .layer-detail {
+      font-size: 0.88rem; color: var(--body); line-height: 1.7;
+      margin-top: 0.6rem; max-height: 0; overflow: hidden;
+      transition: max-height 0.4s ease;
+    }
+    .layer-block.active .layer-detail { max-height: 100px; }
+    .layer-solution {
+      font-family: 'DM Mono', monospace; font-size: 0.7rem;
+      margin-top: 0.5rem; padding: 0.4rem 0.7rem;
+      background: color-mix(in srgb, var(--layer-c) 10%, transparent);
+      border-radius: 4px; color: var(--layer-c);
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 4 — INFORMATION DIET SLIDER
+    ════════════════════════════════════ */
+    .diet-slider-wrap {
+      display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem;
+    }
+    .diet-end {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--muted); letter-spacing: 0.06em; width: 80px;
+    }
+    .diet-end:last-child { text-align: right; }
+    input#diet-slider {
+      -webkit-appearance: none; appearance: none; flex: 1;
+      height: 6px; border-radius: 3px; outline: none; cursor: pointer;
+      background: linear-gradient(90deg, var(--good), var(--warn), var(--bad));
+    }
+    input#diet-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 20px; height: 20px;
+      border-radius: 50%; background: var(--headline);
+      box-shadow: 0 0 0 3px var(--bg), 0 0 12px var(--accent-glow);
+      cursor: pointer;
+    }
+
+    .diet-display {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    }
+    @media (max-width:520px) { .diet-display { grid-template-columns: 1fr; } }
+
+    .diet-panel {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1rem;
+    }
+    .diet-panel-label {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.6rem;
+    }
+    .diet-context-blocks {
+      display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.75rem;
+    }
+    .diet-block {
+      height: 10px; border-radius: 3px;
+      transition: opacity 0.5s, background 0.5s;
+    }
+    .diet-quality-pill {
+      display: inline-block; font-family: 'DM Mono', monospace;
+      font-size: 0.65rem; padding: 0.2rem 0.6rem; border-radius: 4px;
+      font-weight: 500; transition: all 0.4s;
+    }
+    .diet-note {
+      font-size: 0.82rem; color: var(--muted); margin-top: 0.5rem;
+      font-style: italic; min-height: 40px; transition: all 0.3s;
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 5 — NEGATIVE CONTEXT BUILDER
+    ════════════════════════════════════ */
+    .neg-controls {
+      display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.25rem;
+    }
+    .neg-tag {
+      font-family: 'DM Mono', monospace; font-size: 0.65rem;
+      padding: 0.35rem 0.85rem; border-radius: 20px;
+      border: 1px solid var(--border-bright);
+      background: var(--surface-2); color: var(--muted);
+      cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em;
+    }
+    .neg-tag.selected {
+      background: rgba(247,106,106,0.12);
+      border-color: rgba(247,106,106,0.4);
+      color: var(--bad);
+    }
+
+    .neg-output {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1rem 1.25rem;
+      font-family: 'DM Mono', monospace; font-size: 0.76rem;
+      color: var(--body); line-height: 1.9; min-height: 100px;
+      white-space: pre-wrap; transition: all 0.3s;
+    }
+    .neg-output .never { color: var(--bad); font-weight: 500; }
+    .neg-output .item { color: var(--accent-3); }
+    .neg-output .placeholder { color: var(--muted); }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 6 — CONCEPT CARD BROWSER
+    ════════════════════════════════════ */
+    .card-filter-row {
+      display: flex; gap: 0.5rem; flex-wrap: wrap;
+    }
+
+    .concept-cards-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem; margin-top: 1.25rem;
+    }
+
+    .concept-card {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1.1rem 1.25rem;
+      cursor: default; position: relative; overflow: hidden;
+      transition: border-color 0.3s, transform 0.3s, opacity 0.3s;
+    }
+    .concept-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .concept-card.hidden { opacity: 0; pointer-events: none; height: 0; padding: 0; margin: 0; border: none; }
+
+    .cc-category {
+      font-family: 'DM Mono', monospace; font-size: 0.58rem;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      margin-bottom: 0.4rem;
+    }
+    .cc-title {
+      font-family: 'Fraunces', serif; font-size: 0.98rem;
+      color: var(--headline); font-weight: 400; margin-bottom: 0.45rem;
+    }
+    .cc-model {
+      font-family: 'DM Mono', monospace; font-size: 0.64rem;
+      color: var(--accent-3); letter-spacing: 0.04em; margin-bottom: 0.5rem;
+    }
+    .cc-solution {
+      font-size: 0.82rem; color: var(--body); line-height: 1.65;
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 7 — CONTEXT QUALITY DASHBOARD
+    ════════════════════════════════════ */
+    .dashboard-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    }
+    @media (max-width:520px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+    .dash-card {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.1rem;
+    }
+    .dash-card-title {
+      font-family: 'DM Mono', monospace; font-size: 0.63rem;
+      color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+
+    .dash-meter {
+      display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;
+    }
+    .dash-meter-label {
+      font-family: 'DM Mono', monospace; font-size: 0.65rem;
+      color: var(--muted); width: 90px; flex-shrink: 0;
+    }
+    .dash-meter-bar {
+      flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
+    }
+    .dash-meter-fill {
+      height: 100%; border-radius: 3px;
+      transition: width 1s cubic-bezier(0.22,1,0.36,1);
+    }
+    .dash-meter-val {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--muted); width: 32px; text-align: right;
+    }
+
+    .dash-score-big {
+      font-family: 'Fraunces', serif; font-size: 3rem; line-height: 1;
+      font-weight: 300; transition: color 0.4s;
+    }
+    .dash-score-label {
+      font-family: 'DM Mono', monospace; font-size: 0.6rem;
+      color: var(--muted); letter-spacing: 0.08em; margin-top: 0.3rem;
+    }
+
+    .dash-checkbox-group {
+      display: flex; flex-direction: column; gap: 0.45rem;
+    }
+    .dash-check {
+      display: flex; align-items: center; gap: 0.6rem; cursor: pointer;
+    }
+    .dash-check input[type="checkbox"] {
+      width: 14px; height: 14px; cursor: pointer;
+      accent-color: var(--accent);
+    }
+    .dash-check-label {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--body); letter-spacing: 0.04em;
+    }
+
+    .dash-verdict {
+      grid-column: 1 / -1; padding: 0.85rem 1.1rem;
+      border-radius: 8px; border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap;
+      transition: all 0.4s;
+    }
+    .dash-verdict-label {
+      font-family: 'DM Mono', monospace; font-size: 0.65rem;
+      color: var(--muted); letter-spacing: 0.08em;
+    }
+    .dash-verdict-text {
+      font-family: 'Fraunces', serif; font-size: 1.1rem;
+      font-style: italic; color: var(--headline); transition: color 0.4s;
+    }
+
+    footer {
+      margin-top: 5rem; padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--muted); letter-spacing: 0.06em;
+      display: flex; justify-content: space-between;
+    }
+
+    @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1; transform: none; transition: none; }
+      * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+<div id="cursor-glow"></div>
+
+<div class="wrapper">
+
+  <a href="../index.html" class="back-link">← BACK TO ARCHITECT</a>
+
+  <header class="essay-header">
+    <div class="eyebrow">// CONTEXT ENGINEERING</div>
+    <h1 class="essay-title">Context Engineering<br><em>Reducing Uncertainty, Not Adding Information</em></h1>
+    <div class="subtitle">The underrated discipline that separates amateur prompting from production-grade AI systems</div>
+    <div class="meta">
+      <span class="meta-pill">PRACTICAL + FRAMEWORKS</span>
+      JUNE 2026 &nbsp;·&nbsp; 8 MIN READ &nbsp;·&nbsp; 7 INTERACTIVE TOOLS
+    </div>
+  </header>
+
+  <div class="reveal" style="margin-top:2.5rem;">
+    <p class="lede">
+      One of the biggest misconceptions about context engineering is that it's about feeding AI more information. It isn't. It's about reducing uncertainty. Every piece of context should answer one of the AI's hidden questions — and knowing which questions those are is the entire discipline.
+    </p>
+  </div>
+
+  <div class="essay-body reveal" style="margin-top:1.75rem;">
+    <p>
+      What am I trying to accomplish? What already exists? What matters most? What should I ignore? What does success look like? These are the five questions an AI model is silently trying to answer every time you send it a task. <strong>Context engineering is the art of answering them before they're asked.</strong>
+    </p>
+    <p>
+      The shift from prompt engineering to context engineering is like the shift from giving someone directions turn-by-turn versus handing them a map, a destination, and a list of roads that are closed. The directions solve one trip. The map solves every trip.
+    </p>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · The Core Idea</div>
+    <p>
+      Imagine briefing a new surgeon who wakes up every morning with amnesia (a recurring character in this series). You could read them a long list of instructions before every procedure. Or you could build a surgical protocol — a structured system that answers every situation-dependent question before it arises. <em>Prompt engineering reads instructions. Context engineering builds the protocol.</em> One scales to one procedure. The other scales to a career.
+    </p>
+  </div>
+
+  <div class="pullquote reveal">
+    <p>"A great prompt solves one problem. A well-designed context system solves thousands of related problems — because it gives AI the same situational awareness an experienced teammate would have."</p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 1 — CONTEXT DEBT DECAYER
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Context Debt — When Old Information Becomes a Liability</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Old, conflicting, or irrelevant information quietly degrades AI quality. This is <strong>Context Debt</strong> — the hidden tax paid when stale assumptions accumulate in your context window. The AI doesn't know the information is outdated. It treats it as truth. The solution is a "Context Reset" at the start of every major task — removing stale data and summarising only what's still true.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="debt-widget">
+    <div class="widget-header">
+      <div class="widget-label">Context Debt Simulator</div>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="pill-btn" id="debt-age-btn">Age the Context →</button>
+        <button class="pill-btn" id="debt-reset-btn">Context Reset ↺</button>
+      </div>
+    </div>
+    <div class="widget-body">
+      <div class="debt-timeline" id="debt-timeline"></div>
+      <div class="debt-quality-bar">
+        <div class="debt-quality-label">
+          <span>AI OUTPUT QUALITY</span>
+          <span id="debt-quality-pct">94%</span>
+        </div>
+        <div class="debt-bar-track">
+          <div class="debt-bar-fill" id="debt-bar" style="width:94%;background:var(--good);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · Context Debt</div>
+    <p>
+      A messy desk causes a messy mind. When your workspace is cluttered with papers from last month's project, last week's meeting notes, and three different versions of the same document, you waste cognitive energy filtering noise from signal. <em>Context debt is the AI equivalent of a cluttered desk — the model wastes inference cycles sorting through outdated information before it can do any real work.</em>
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 2 — SCOPE BUILDER
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>The SCOPE Framework — Five Elements That Eliminate Guesswork</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      The SCOPE framework is a memorable structure for building complete context. When all five elements are present, the AI can spend less effort guessing and more effort solving. <strong>S — Situation. C — Constraints. O — Objectives. P — Preferences. E — Evidence.</strong> Try building a prompt below and watch the context quality score assemble in real time.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="scope-widget">
+    <div class="widget-header">
+      <div class="widget-label">SCOPE Framework Builder</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">FILL FIELDS TO IMPROVE CONTEXT QUALITY</div>
+    </div>
+    <div class="widget-body">
+      <div class="scope-grid" id="scope-grid">
+        <div class="scope-row">
+          <div class="scope-letter">S</div>
+          <div class="scope-label">Situation<br><span style="font-size:0.58rem;color:var(--muted);">What is happening?</span></div>
+          <input class="scope-input" data-key="S" placeholder="e.g. We're launching a new B2B SaaS product next quarter…">
+        </div>
+        <div class="scope-row">
+          <div class="scope-letter">C</div>
+          <div class="scope-label">Constraints<br><span style="font-size:0.58rem;color:var(--muted);">What limits exist?</span></div>
+          <input class="scope-input" data-key="C" placeholder="e.g. Budget $5K, 3 weeks, no paid ads, team of 2…">
+        </div>
+        <div class="scope-row">
+          <div class="scope-letter">O</div>
+          <div class="scope-label">Objectives<br><span style="font-size:0.58rem;color:var(--muted);">What outcome matters?</span></div>
+          <input class="scope-input" data-key="O" placeholder="e.g. Generate 50 qualified leads in 30 days…">
+        </div>
+        <div class="scope-row">
+          <div class="scope-letter">P</div>
+          <div class="scope-label">Preferences<br><span style="font-size:0.58rem;color:var(--muted);">How should it be done?</span></div>
+          <input class="scope-input" data-key="P" placeholder="e.g. Direct tone, data-driven, avoid jargon…">
+        </div>
+        <div class="scope-row">
+          <div class="scope-letter">E</div>
+          <div class="scope-label">Evidence<br><span style="font-size:0.58rem;color:var(--muted);">What supports the task?</span></div>
+          <input class="scope-input" data-key="E" placeholder="e.g. Competitor analysis shows gap in SMB segment…">
+        </div>
+      </div>
+
+      <div class="scope-score-wrap">
+        <div>
+          <div class="scope-score-val" id="scope-score" style="color:var(--bad);">0%</div>
+          <div class="scope-score-label">CONTEXT QUALITY SCORE</div>
+        </div>
+        <div class="scope-dots" id="scope-dots">
+          <div class="scope-dot" data-i="0"></div>
+          <div class="scope-dot" data-i="1"></div>
+          <div class="scope-dot" data-i="2"></div>
+          <div class="scope-dot" data-i="3"></div>
+          <div class="scope-dot" data-i="4"></div>
+        </div>
+      </div>
+
+      <div class="scope-preview" id="scope-preview">
+        <div class="scope-preview-label">// ASSEMBLED CONTEXT PROMPT PREVIEW</div>
+        <div class="scope-preview-text" id="scope-preview-text"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 3 — CONTEXT LAYER STACK
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>The Five Hidden Layers of Context</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Most people think context means documents. In reality, effective context has five distinct layers — each answering a different class of uncertainty. Missing any one layer forces the AI to guess. Click each layer to explore what it contains and how to build it.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="layer-widget">
+    <div class="widget-header">
+      <div class="widget-label">Context Layer Stack</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">CLICK A LAYER TO EXPAND</div>
+    </div>
+    <div class="widget-body" style="padding:1rem;">
+      <div class="layer-stack-visual" id="layer-stack"></div>
+    </div>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · The Five Layers</div>
+    <p>
+      A new employee on their first day has five things they desperately need to know: why the company exists (Goal), what the product does (Knowledge), how things are done here (Preference), what the rules and budgets are (Environmental), and what's already been tried and failed (Historical). Skip any one of those and they'll make expensive, avoidable mistakes. <em>The five context layers are the onboarding package you build for your AI teammate — once, then reuse forever.</em>
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 4 — INFORMATION DIET
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>The Information Diet — More Context Often Means Worse Results</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Counter-intuitively, adding more context often produces worse AI output. Signal drowns in noise. The model distributes attention across everything you provide — useful and irrelevant equally. <strong>Give only the information needed to make the next decision.</strong> Expand only when the current context proves insufficient.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="diet-widget">
+    <div class="widget-header">
+      <div class="widget-label">Information Diet Slider</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">MORE CONTEXT ≠ BETTER OUTPUT</div>
+    </div>
+    <div class="widget-body">
+      <div class="diet-slider-wrap">
+        <div class="diet-end">LEAN<br>FOCUSED</div>
+        <input type="range" id="diet-slider" min="1" max="10" value="3">
+        <div class="diet-end">BLOATED<br>OVERLOADED</div>
+      </div>
+      <div class="diet-display">
+        <div class="diet-panel">
+          <div class="diet-panel-label" style="color:var(--accent);">CONTEXT PROVIDED</div>
+          <div class="diet-context-blocks" id="diet-blocks"></div>
+          <div style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);" id="diet-token-count">~320 tokens</div>
+        </div>
+        <div class="diet-panel">
+          <div class="diet-panel-label" style="color:var(--accent-2);">OUTPUT QUALITY</div>
+          <div class="diet-quality-pill" id="diet-quality-pill" style="background:rgba(52,212,160,0.12);border:1px solid rgba(52,212,160,0.3);color:var(--good);">EXCELLENT</div>
+          <div class="diet-note" id="diet-note">Focused context. Model locks onto intent immediately.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · Information Diet</div>
+    <p>
+      Context is fuel, not cargo. A racing car carries exactly the fuel needed to finish the race — not a full tanker. Extra fuel doesn't make you faster. It makes you heavier, slower, and more likely to run poorly. <em>The same amount of fuel that wins a race would sink a speedboat.</em> The optimal context load is precisely what the next decision requires — nothing more.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 5 — NEGATIVE CONTEXT BUILDER
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Negative Context — Teaching AI What Not to Do</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      AI needs to know what <em>not</em> to do as much as what to do. Most prompts are entirely positive instructions. Adding a "Never…" section — forbidden styles, assumptions, technologies, or outcomes — is one of the highest-leverage, lowest-effort improvements you can make to any prompt. <strong>Guardrails beat instructions.</strong>
+    </p>
+  </div>
+
+  <div class="widget reveal" id="neg-widget">
+    <div class="widget-header">
+      <div class="widget-label">Negative Context Builder</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">SELECT WHAT AI SHOULD NEVER DO</div>
+    </div>
+    <div class="widget-body">
+      <div style="margin-bottom:0.85rem;">
+        <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);letter-spacing:0.08em;margin-bottom:0.6rem;">DOMAIN</div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;" id="neg-domain-row">
+          <button class="pill-btn active" data-domain="writing">Writing</button>
+          <button class="pill-btn" data-domain="code">Code</button>
+          <button class="pill-btn" data-domain="strategy">Strategy</button>
+          <button class="pill-btn" data-domain="data">Data</button>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);letter-spacing:0.08em;margin-bottom:0.6rem;">NEVER DO…</div>
+        <div class="neg-controls" id="neg-tags"></div>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--accent);letter-spacing:0.1em;margin-bottom:0.5rem;">// GENERATED NEGATIVE CONTEXT BLOCK</div>
+      <div class="neg-output" id="neg-output"><span class="placeholder">// Select constraints above to generate your Never… block</span></div>
+    </div>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · Negative Context</div>
+    <p>
+      A new hire at a law firm needs to know what they can do — but they need equally to know what they must never do: never contact opposing counsel directly, never make representations without partner sign-off, never discuss client matters outside the office. <em>The "Never" list isn't a restriction on capability — it's the guardrail that makes autonomy safe.</em> The more clearly you define the edges, the more freely the AI can operate within them.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 6 — CONCEPT CARD BROWSER
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>15 High-Leverage Context Engineering Concepts</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      The table below covers the least understood — and highest leverage — concepts in context engineering. Each has a mental model designed to make it stick. Filter by category to focus on what's most relevant to your current work.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="concept-widget">
+    <div class="widget-header">
+      <div class="widget-label">Concept Browser</div>
+      <div class="card-filter-row" id="card-filter-row">
+        <button class="pill-btn active" data-filter="all">All (15)</button>
+        <button class="pill-btn" data-filter="memory">Memory</button>
+        <button class="pill-btn" data-filter="input">Input Quality</button>
+        <button class="pill-btn" data-filter="constraints">Constraints</button>
+        <button class="pill-btn" data-filter="output">Output</button>
+      </div>
+    </div>
+    <div class="widget-body">
+      <div class="concept-cards-grid" id="concept-cards-grid"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 7 — CONTEXT QUALITY DASHBOARD
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Context Quality Dashboard — Audit Your Next Prompt</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Before sending any important prompt, run it through this quick audit. Check off what you've included, and the dashboard calculates a context quality score with a verdict on what's likely to go wrong. This is the pre-flight checklist for AI tasks.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="dashboard-widget">
+    <div class="widget-header">
+      <div class="widget-label">Context Quality Dashboard</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">PRE-FLIGHT CHECKLIST — CHECK WHAT YOU'VE INCLUDED</div>
+    </div>
+    <div class="widget-body">
+      <div class="dashboard-grid" id="dash-grid">
+
+        <div class="dash-card">
+          <div class="dash-card-title">Context Dimensions</div>
+          <div class="dash-checkbox-group" id="dash-checks"></div>
+        </div>
+
+        <div class="dash-card" style="display:flex;flex-direction:column;justify-content:space-between;">
+          <div>
+            <div class="dash-card-title">Quality Score</div>
+            <div class="dash-score-big" id="dash-score-big" style="color:var(--bad);">0</div>
+            <div class="dash-score-label">OUT OF 100</div>
+          </div>
+          <div style="margin-top:1rem;">
+            <div class="dash-card-title" style="margin-bottom:0.5rem;">Dimension Coverage</div>
+            <div id="dash-meters"></div>
+          </div>
+        </div>
+
+        <div class="dash-verdict" id="dash-verdict">
+          <div class="dash-verdict-label">VERDICT</div>
+          <div class="dash-verdict-text" id="dash-verdict-text">Check items above to see your verdict</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- CLOSING -->
+  <div class="reveal" style="margin-top:4rem;padding-top:2.5rem;border-top:1px solid var(--border);">
+    <div class="section-label" style="margin-top:0;"><span>The Defining Skill of the Decade</span></div>
+    <div class="essay-body">
+      <p>
+        Prompt engineering teaches AI what to do. <strong>Context engineering teaches AI how to think about your world.</strong> That is why context engineering scales. A great prompt solves one problem. A well-designed context system solves thousands of related problems by giving AI the same situational awareness an experienced teammate would have.
+      </p>
+      <p>
+        This shift — from crafting clever prompts to designing reusable, evolving context — is likely to be one of the defining skills of knowledge work over the rest of the decade. The engineers and knowledge workers who build this muscle first will have a compounding advantage that's genuinely difficult to replicate.
+      </p>
+    </div>
+    <div class="analogy-card">
+      <div class="analogy-tag">Final Analogy · The Big Picture</div>
+      <p>
+        A great orchestra doesn't improvise from scratch at every concert. They have sheet music, rehearsal history, an agreed interpretation, a conductor's style, and decades of institutional memory about how this ensemble plays together. Each performance benefits from everything that came before. <em>A well-engineered context system is the sheet music, rehearsal notes, and institutional memory rolled into one — the accumulated intelligence that makes every future AI interaction better than the last.</em>
+      </p>
+    </div>
+  </div>
+
+  <footer>
+    <span>// CONTEXT ENGINEERING</span>
+    <span>JUNE 2026</span>
+  </footer>
+</div>
+
+<script>
+// ── PROGRESS + CURSOR ──
+const bar = document.getElementById('progress-bar');
+window.addEventListener('scroll', () => {
+  const d = document.documentElement;
+  bar.style.width = Math.min(100,(d.scrollTop/(d.scrollHeight-d.clientHeight))*100)+'%';
+});
+const glow = document.getElementById('cursor-glow');
+document.addEventListener('mousemove', e => {
+  glow.style.left = e.clientX+'px'; glow.style.top = e.clientY+'px';
+});
+
+// ── SCROLL REVEAL ──
+const reveals = document.querySelectorAll('.reveal');
+const ro = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('visible'); ro.unobserve(e.target); } });
+}, { threshold:0.08, rootMargin:'0px 0px -30px 0px' });
+reveals.forEach(el => ro.observe(el));
+
+// ════════════════════════════════════
+// INTERACTIVE 1 — CONTEXT DEBT
+// ════════════════════════════════════
+const debtItems = [
+  { text: 'Goal: Launch mobile app by Q2 2025', age: 0, cat: 'fresh' },
+  { text: 'Tech stack: React Native + Firebase', age: 0, cat: 'fresh' },
+  { text: 'Budget: $80K remaining', age: 0, cat: 'fresh' },
+  { text: 'Lead dev: Sarah Chen (still current)', age: 0, cat: 'fresh' },
+  { text: 'Design system: Figma v3 approved', age: 0, cat: 'fresh' },
+  { text: 'API partner: Stripe integration confirmed', age: 0, cat: 'fresh' },
+];
+
+const staleVersions = [
+  'Goal: Launch mobile app by Q2 2025 ← OUTDATED (now Q4)',
+  'Tech stack: React Native + Firebase ← REPLACED (now Next.js + Supabase)',
+  'Budget: $80K remaining ← STALE ($12K remaining)',
+  'Lead dev: Sarah Chen ← LEFT COMPANY (now Marcus)',
+  'Design system: Figma v3 approved',
+  'API partner: Stripe integration confirmed',
+];
+
+let debtStale = 0;
+const debtTimeline = document.getElementById('debt-timeline');
+
+function renderDebtItems(items) {
+  debtTimeline.innerHTML = '';
+  items.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'debt-entry' + (item.stale ? ' stale' : ' fresh');
+    div.innerHTML = `<div class="debt-dot debt-${item.stale ? 'bad' : 'fresh'}" style="background:${item.stale?'var(--bad)':'var(--good)'}"></div>
+      <div class="debt-text">${item.display || item.text}</div>
+      <div class="debt-age">${item.stale ? '⚠ STALE' : '✓ CURRENT'}</div>`;
+    debtTimeline.appendChild(div);
+  });
+}
+
+const debtState = debtItems.map(d => ({...d}));
+renderDebtItems(debtState);
+
+document.getElementById('debt-age-btn').addEventListener('click', () => {
+  if (debtStale >= 4) return;
+  debtStale++;
+  debtState[debtStale-1].stale = true;
+  debtState[debtStale-1].display = staleVersions[debtStale-1];
+  renderDebtItems(debtState);
+  const quality = Math.max(20, 94 - debtStale * 18);
+  const fill = document.getElementById('debt-bar');
+  const pct = document.getElementById('debt-quality-pct');
+  fill.style.width = quality+'%';
+  fill.style.background = quality > 70 ? 'var(--good)' : quality > 40 ? 'var(--warn)' : 'var(--bad)';
+  pct.textContent = quality+'%';
+});
+
+document.getElementById('debt-reset-btn').addEventListener('click', () => {
+  debtStale = 0;
+  debtState.forEach((d,i) => { d.stale=false; d.display=debtItems[i].text; });
+  renderDebtItems(debtState);
+  document.getElementById('debt-bar').style.width='94%';
+  document.getElementById('debt-bar').style.background='var(--good)';
+  document.getElementById('debt-quality-pct').textContent='94%';
+});
+
+// ════════════════════════════════════
+// INTERACTIVE 2 — SCOPE BUILDER
+// ════════════════════════════════════
+const scopeValues = { S:'', C:'', O:'', P:'', E:'' };
+const scopeLabels = { S:'Situation', C:'Constraints', O:'Objectives', P:'Preferences', E:'Evidence' };
+
+document.querySelectorAll('.scope-input').forEach(input => {
+  input.addEventListener('input', function() {
+    scopeValues[this.dataset.key] = this.value.trim();
+    updateScopeScore();
+  });
+});
+
+function updateScopeScore() {
+  const filled = Object.values(scopeValues).filter(v => v.length > 0);
+  const count = filled.length;
+  const pct = Math.round((count/5)*100);
+  const scoreEl = document.getElementById('scope-score');
+  scoreEl.textContent = pct+'%';
+  scoreEl.style.color = pct===100?'var(--good)':pct>=60?'var(--warn)':'var(--bad)';
+
+  document.querySelectorAll('.scope-dot').forEach((dot, i) => {
+    const key = ['S','C','O','P','E'][i];
+    dot.classList.toggle('filled', scopeValues[key].length > 0);
+  });
+
+  const preview = document.getElementById('scope-preview');
+  const previewText = document.getElementById('scope-preview-text');
+  if (count > 0) {
+    preview.classList.add('show');
+    let txt = '';
+    ['S','C','O','P','E'].forEach(k => {
+      if (scopeValues[k]) txt += `[${scopeLabels[k].toUpperCase()}] ${scopeValues[k]}\n`;
+    });
+    previewText.textContent = txt.trim();
+  } else {
+    preview.classList.remove('show');
+  }
+}
+
+// ════════════════════════════════════
+// INTERACTIVE 3 — CONTEXT LAYER STACK
+// ════════════════════════════════════
+const layers = [
+  { name:'Goal Context', icon:'🎯', color:'#4f8ef7', detail:'Why are we doing this? Without a goal, AI optimizes for the wrong outcome. The most expensive AI errors happen here — technically correct, strategically wrong.', solution:'Always define success before asking for work. "The goal is…" is the highest-leverage sentence in any prompt.' },
+  { name:'Knowledge Context', icon:'📚', color:'#34d4a0', detail:'What does AI need to know? Previous emails, documentation, research, standards, customer history. This is the most commonly over-filled layer.', solution:'Build reusable "knowledge packets" instead of repeatedly uploading the same files each session.' },
+  { name:'Preference Context', icon:'⚙️', color:'#a78bfa', detail:'How do you like things done? Writing style, coding conventions, formatting, preferred tools, communication tone. Rarely explicit, always assumed.', solution:'Create a reusable "Operating Manual for Me" — one document that travels with every major task.' },
+  { name:'Environmental Context', icon:'🌐', color:'#f5a623', detail:'What constraints exist? Budget, timeline, team size, available software, regulations, hardware. AI without environmental context recommends solutions you can\'t execute.', solution:'Make constraints explicit before requesting solutions. Constraints are cheaper to state than to fix.' },
+  { name:'Historical Context', icon:'🕐', color:'#f76a6a', detail:'What has already happened? AI often repeats failed ideas because it doesn\'t know what you\'ve already tried. This is the most overlooked layer.', solution:'Maintain a "Lessons Learned" section for ongoing work. Past failures are some of the most valuable context you have.' },
+];
+
+const layerStack = document.getElementById('layer-stack');
+let activeLayer = -1;
+
+layers.forEach((layer, i) => {
+  const div = document.createElement('div');
+  div.className = 'layer-block';
+  div.style.setProperty('--layer-c', layer.color);
+  div.innerHTML = `
+    <div class="layer-block-header">
+      <div class="layer-icon">${layer.icon}</div>
+      <div class="layer-name">${layer.name}</div>
+      <div class="layer-tag">LAYER ${i+1}</div>
+    </div>
+    <div class="layer-detail">
+      ${layer.detail}
+      <div class="layer-solution">→ ${layer.solution}</div>
+    </div>`;
+  div.addEventListener('click', () => {
+    if (activeLayer === i) {
+      div.classList.remove('active');
+      activeLayer = -1;
+    } else {
+      document.querySelectorAll('.layer-block').forEach(b => b.classList.remove('active'));
+      div.classList.add('active');
+      activeLayer = i;
+    }
+  });
+  layerStack.appendChild(div);
+});
+
+// ════════════════════════════════════
+// INTERACTIVE 4 — INFORMATION DIET
+// ════════════════════════════════════
+const dietSlider = document.getElementById('diet-slider');
+const dietBlockColors = ['var(--accent)','var(--accent-2)','var(--accent-purple)','var(--accent-3)','var(--accent)','var(--accent-2)','var(--bad)','var(--warn)','var(--bad)','var(--bad)'];
+const dietBlockLabels = ['Goal context','Knowledge base','Preferences','Constraints','Examples','Historical notes','Unrelated docs','Old emails','Draft notes','Raw data dumps'];
+const dietNotes = [
+  'Focused context. Model locks onto intent immediately. High signal-to-noise ratio.',
+  'Clean and purposeful. Model can navigate all provided context efficiently.',
+  'Good balance. Slight attention diffusion but output remains strong.',
+  'Starting to dilute. Model splits attention across useful and marginal content.',
+  'Moderate noise. Model begins hedging responses to account for conflicting signals.',
+  'Attention fragmentation. Key instructions start competing with filler content.',
+  'Signal drowning. Model struggles to prioritise your core intent.',
+  'High noise. Irrelevant content pulls model away from the actual task.',
+  'Severe dilution. Output becomes generic as model tries to reconcile everything.',
+  'Overloaded. Model cannot distinguish signal from noise. Output quality collapses.',
+];
+const qualityLabels = ['EXCELLENT','EXCELLENT','STRONG','GOOD','MODERATE','AVERAGE','BELOW AVG','POOR','VERY POOR','FAILING'];
+const qualityColors = [
+  ['rgba(52,212,160,0.12)','rgba(52,212,160,0.3)','var(--good)'],
+  ['rgba(52,212,160,0.12)','rgba(52,212,160,0.3)','var(--good)'],
+  ['rgba(52,212,160,0.10)','rgba(52,212,160,0.25)','var(--good)'],
+  ['rgba(79,142,247,0.12)','rgba(79,142,247,0.3)','var(--accent)'],
+  ['rgba(245,166,35,0.10)','rgba(245,166,35,0.3)','var(--warn)'],
+  ['rgba(245,166,35,0.12)','rgba(245,166,35,0.35)','var(--warn)'],
+  ['rgba(247,106,106,0.10)','rgba(247,106,106,0.25)','var(--bad)'],
+  ['rgba(247,106,106,0.12)','rgba(247,106,106,0.3)','var(--bad)'],
+  ['rgba(247,106,106,0.15)','rgba(247,106,106,0.35)','var(--bad)'],
+  ['rgba(247,106,106,0.18)','rgba(247,106,106,0.4)','var(--bad)'],
+];
+
+function updateDiet() {
+  const v = parseInt(dietSlider.value) - 1;
+  const blocksEl = document.getElementById('diet-blocks');
+  blocksEl.innerHTML = '';
+  for (let i = 0; i <= v; i++) {
+    const b = document.createElement('div');
+    b.className = 'diet-block';
+    const opacity = i < 6 ? 1 : 0.5;
+    b.style.cssText = `background:${dietBlockColors[i]};opacity:${opacity};`;
+    b.title = dietBlockLabels[i];
+    blocksEl.appendChild(b);
+  }
+  const tokens = [320,520,780,1050,1400,1900,2600,3500,4800,6200][v];
+  document.getElementById('diet-token-count').textContent = '~'+tokens.toLocaleString()+' tokens';
+  const pill = document.getElementById('diet-quality-pill');
+  const [bg, border, color] = qualityColors[v];
+  pill.style.cssText = `background:${bg};border:1px solid ${border};color:${color};`;
+  pill.textContent = qualityLabels[v];
+  document.getElementById('diet-note').textContent = dietNotes[v];
+}
+
+dietSlider.addEventListener('input', updateDiet);
+updateDiet();
+
+// ════════════════════════════════════
+// INTERACTIVE 5 — NEGATIVE CONTEXT
+// ════════════════════════════════════
+const negDomains = {
+  writing: ['Use passive voice','Add disclaimers','Include filler phrases','Use bullet points','Exceed 300 words','Sound corporate','Use jargon','Make assumptions about audience'],
+  code: ['Use deprecated APIs','Add console.log statements','Skip error handling','Use any as a type','Write comments for obvious code','Create global variables','Skip input validation','Use magic numbers'],
+  strategy: ['Recommend more budget','Ignore constraints','Suggest generic solutions','Repeat already-tried approaches','Assume unlimited time','Focus only on short-term','Overlook competitive factors','Make unsupported claims'],
+  data: ['Round without noting it','Ignore outliers without flagging','Confuse correlation with causation','Use absolute numbers without context','Cherry-pick favorable data','Skip confidence intervals','Omit sample size','Present without uncertainty range'],
+};
+
+let currentNegDomain = 'writing';
+let selectedNegs = new Set();
+
+function renderNegTags() {
+  const container = document.getElementById('neg-tags');
+  container.innerHTML = '';
+  selectedNegs.clear();
+  negDomains[currentNegDomain].forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = 'neg-tag';
+    btn.textContent = item;
+    btn.addEventListener('click', function() {
+      this.classList.toggle('selected');
+      if (this.classList.contains('selected')) selectedNegs.add(item);
+      else selectedNegs.delete(item);
+      updateNegOutput();
+    });
+    container.appendChild(btn);
+  });
+  updateNegOutput();
+}
+
+function updateNegOutput() {
+  const out = document.getElementById('neg-output');
+  if (selectedNegs.size === 0) {
+    out.innerHTML = '<span class="placeholder">// Select constraints above to generate your Never… block</span>';
+    return;
+  }
+  let txt = '<span class="never">NEVER:</span>\n';
+  [...selectedNegs].forEach(item => {
+    txt += `  <span class="item">— ${item}</span>\n`;
+  });
+  out.innerHTML = txt;
+}
+
+document.getElementById('neg-domain-row').addEventListener('click', e => {
+  const btn = e.target.closest('[data-domain]');
+  if (!btn) return;
+  currentNegDomain = btn.dataset.domain;
+  document.querySelectorAll('#neg-domain-row .pill-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderNegTags();
+});
+
+renderNegTags();
+
+// ════════════════════════════════════
+// INTERACTIVE 6 — CONCEPT CARDS
+// ════════════════════════════════════
+const concepts = [
+  { title:'Context Debt', category:'memory', catColor:'#a78bfa', model:'Messy Desk → Messy Mind', solution:'Start every major task with a Context Reset.', filter:'memory' },
+  { title:'Negative Context', category:'input', catColor:'#f76a6a', model:'Guardrails Beat Instructions', solution:'Include a Never… section in every important prompt.', filter:'input' },
+  { title:'Information Diet', category:'input', catColor:'#4f8ef7', model:'Context is Fuel, Not Cargo', solution:'Give only what\'s needed for the next decision.', filter:'input' },
+  { title:'Context Compression', category:'input', catColor:'#34d4a0', model:'Diamonds, Not Dirt', solution:'Summarise 100 pages into 1 before handing to AI.', filter:'input' },
+  { title:'Intent Before Information', category:'input', catColor:'#4f8ef7', model:'Destination Before Directions', solution:'Begin every task with "The goal is…"', filter:'input' },
+  { title:'Decision Context', category:'input', catColor:'#f5a623', model:'Give AI a Scorecard', solution:'Explicitly rank: speed, quality, cost, accuracy.', filter:'input' },
+  { title:'Audience Context', category:'output', catColor:'#a78bfa', model:'One Story, Many Audiences', solution:'Always define the audience before requesting content.', filter:'output' },
+  { title:'Constraint Engineering', category:'constraints', catColor:'#f5a623', model:'Constraints Create Clarity', solution:'Define budgets, tone, tech, and length upfront.', filter:'constraints' },
+  { title:'Examples as Context', category:'input', catColor:'#34d4a0', model:'Show, Don\'t Tell', solution:'One excellent example beats ten paragraphs.', filter:'input' },
+  { title:'Living Context', category:'memory', catColor:'#a78bfa', model:'Rolling Snowball', solution:'Continuously update project summaries.', filter:'memory' },
+  { title:'State Awareness', category:'memory', catColor:'#4f8ef7', model:'Project GPS', solution:'Maintain Done / In Progress / Next in context.', filter:'memory' },
+  { title:'Memory Layers', category:'memory', catColor:'#f5a623', model:'Closet, Desk, Sticky Note', solution:'Separate permanent, project, and temporary context.', filter:'memory' },
+  { title:'Context Provenance', category:'input', catColor:'#34d4a0', model:'Label Every Ingredient', solution:'Mark info as fact, assumption, opinion, or estimate.', filter:'input' },
+  { title:'Context Expiration', category:'memory', catColor:'#f76a6a', model:'Freshness Matters', solution:'Attach review dates to rapidly changing information.', filter:'memory' },
+  { title:'Perspective Switching', category:'output', catColor:'#a78bfa', model:'Walk Around the Statue', solution:'Ask AI to evaluate as customer, exec, and skeptic.', filter:'output' },
+];
+
+const grid = document.getElementById('concept-cards-grid');
+concepts.forEach(c => {
+  const div = document.createElement('div');
+  div.className = 'concept-card';
+  div.dataset.filter = c.filter;
+  div.innerHTML = `
+    <div class="cc-category" style="color:${c.catColor}">${c.category.toUpperCase()}</div>
+    <div class="cc-title">${c.title}</div>
+    <div class="cc-model">"${c.model}"</div>
+    <div class="cc-solution">${c.solution}</div>`;
+  grid.appendChild(div);
+});
+
+document.getElementById('card-filter-row').addEventListener('click', e => {
+  const btn = e.target.closest('[data-filter]');
+  if (!btn) return;
+  const filter = btn.dataset.filter;
+  document.querySelectorAll('#card-filter-row .pill-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.concept-card').forEach(card => {
+    card.classList.toggle('hidden', filter !== 'all' && card.dataset.filter !== filter);
+  });
+});
+
+// ════════════════════════════════════
+// INTERACTIVE 7 — CONTEXT QUALITY DASHBOARD
+// ════════════════════════════════════
+const checkItems = [
+  { label:'Goal / intent defined', dim:'goal', weight:20 },
+  { label:'Audience specified', dim:'output', weight:10 },
+  { label:'Constraints listed', dim:'constraints', weight:15 },
+  { label:'Negative context included', dim:'input', weight:15 },
+  { label:'Examples provided', dim:'input', weight:10 },
+  { label:'Historical context included', dim:'memory', weight:10 },
+  { label:'Output format specified', dim:'output', weight:10 },
+  { label:'Priority / success metric defined', dim:'goal', weight:10 },
+];
+
+const verdicts = [
+  [0,  20,  'AI will mostly guess. Expect irrelevant output.', 'var(--bad)'],
+  [21, 40,  'Partial context. Output will miss key constraints.', 'var(--bad)'],
+  [41, 60,  'Functional but incomplete. AI will make assumptions.', 'var(--warn)'],
+  [61, 80,  'Good context. Minor gaps may cause drift.', 'var(--warn)'],
+  [81, 95,  'Strong context. AI has clear direction to operate.', 'var(--good)'],
+  [96, 100, 'Excellent context. Maximum precision achievable.', 'var(--accent-2)'],
+];
+
+const checksContainer = document.getElementById('dash-checks');
+const metersContainer = document.getElementById('dash-meters');
+const checkedSet = new Set();
+
+const dimWeights = {};
+checkItems.forEach(item => {
+  dimWeights[item.dim] = (dimWeights[item.dim] || 0) + item.weight;
+});
+
+const dims = ['goal','input','constraints','memory','output'];
+const dimColors = { goal:'var(--accent)', input:'var(--accent-2)', constraints:'var(--accent-3)', memory:'var(--accent-purple)', output:'var(--accent-red)' };
+
+dims.forEach(dim => {
+  const wrap = document.createElement('div');
+  wrap.className = 'dash-meter';
+  const total = dimWeights[dim] || 0;
+  wrap.innerHTML = `
+    <div class="dash-meter-label">${dim.toUpperCase()}</div>
+    <div class="dash-meter-bar"><div class="dash-meter-fill" id="meter-${dim}" style="width:0%;background:${dimColors[dim]}"></div></div>
+    <div class="dash-meter-val" id="meter-val-${dim}">0%</div>`;
+  metersContainer.appendChild(wrap);
+});
+
+checkItems.forEach((item, i) => {
+  const label = document.createElement('label');
+  label.className = 'dash-check';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.addEventListener('change', function() {
+    if (this.checked) checkedSet.add(i);
+    else checkedSet.delete(i);
+    updateDashboard();
+  });
+  const span = document.createElement('span');
+  span.className = 'dash-check-label';
+  span.textContent = item.label;
+  label.appendChild(cb); label.appendChild(span);
+  checksContainer.appendChild(label);
+});
+
+function updateDashboard() {
+  let total = 0;
+  const dimScores = {};
+  checkedSet.forEach(i => {
+    const item = checkItems[i];
+    total += item.weight;
+    dimScores[item.dim] = (dimScores[item.dim] || 0) + item.weight;
+  });
+
+  const scoreEl = document.getElementById('dash-score-big');
+  scoreEl.textContent = total;
+  const verdict = verdicts.find(([min,max]) => total >= min && total <= max) || verdicts[0];
+  scoreEl.style.color = verdict[3];
+
+  dims.forEach(dim => {
+    const score = dimScores[dim] || 0;
+    const maxScore = dimWeights[dim] || 1;
+    const pct = Math.round((score/maxScore)*100);
+    document.getElementById('meter-'+dim).style.width = pct+'%';
+    document.getElementById('meter-val-'+dim).textContent = pct+'%';
+  });
+
+  const verdictEl = document.getElementById('dash-verdict-text');
+  verdictEl.textContent = verdict[2];
+  verdictEl.style.color = verdict[3];
+  const verdictBox = document.getElementById('dash-verdict');
+  verdictBox.style.borderColor = verdict[3].replace('var(','').replace(')','');
+  verdictBox.style.background = `color-mix(in srgb, ${verdict[3]} 5%, var(--surface-2))`;
+}
+</script>
+</body>
+</html>
