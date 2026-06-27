@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verifiability & Governance — From "Trust Me" to "Prove It"</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,700;1,9..144,300;1,9..144,400&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #07070f;
+      --surface: #0d0d1c;
+      --surface-2: #111128;
+      --border: #1a1a30;
+      --border-bright: #252545;
+      --accent: #6655e8;
+      --accent-2: #2dd4a8;
+      --accent-3: #f5a623;
+      --accent-red: #f76a6a;
+      --accent-dim: rgba(102,85,232,0.11);
+      --accent-glow: rgba(102,85,232,0.28);
+      --headline: #edecf8;
+      --body: #9896b8;
+      --muted: #4e4d68;
+      --node-verified: #2dd4a8;
+      --node-pending: #f5a623;
+      --node-human: #c084fc;
+      --node-policy: #60a5fa;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--body);
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      line-height: 1.75;
+      overflow-x: hidden;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    #progress-bar {
+      position: fixed; top: 0; left: 0;
+      height: 2px; width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      z-index: 9998;
+      box-shadow: 0 0 10px var(--accent-glow);
+      transition: width 0.1s linear;
+    }
+
+    #cursor-glow {
+      position: fixed;
+      width: 380px; height: 380px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(102,85,232,0.045) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+      transform: translate(-50%, -50%);
+      transition: left 0.07s, top 0.07s;
+    }
+
+    .wrapper {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 4rem 2rem 10rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── NAV ── */
+    .back-link {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.08em;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--accent); }
+
+    /* ── HEADER ── */
+    .essay-header { margin-top: 4rem; padding-bottom: 2.5rem; border-bottom: 1px solid var(--border); }
+
+    .eyebrow {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem; color: var(--accent);
+      letter-spacing: 0.14em; text-transform: uppercase;
+      margin-bottom: 1.25rem;
+      opacity: 0; transform: translateY(8px);
+      animation: fadeUp 0.5s ease forwards 0.1s;
+    }
+
+    h1.essay-title {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(2rem, 5.5vw, 3.1rem);
+      font-weight: 300; color: var(--headline);
+      line-height: 1.1; letter-spacing: -0.025em;
+      margin-bottom: 0.75rem;
+      opacity: 0; transform: translateY(14px);
+      animation: fadeUp 0.65s ease forwards 0.22s;
+    }
+
+    h1.essay-title em { font-style: italic; color: var(--accent-2); }
+
+    .subtitle {
+      font-family: 'Fraunces', serif;
+      font-size: 1.05rem; color: var(--muted);
+      font-style: italic; font-weight: 300;
+      margin-bottom: 1.5rem;
+      opacity: 0; transform: translateY(10px);
+      animation: fadeUp 0.6s ease forwards 0.35s;
+    }
+
+    .meta {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem; color: var(--muted);
+      letter-spacing: 0.08em;
+      display: flex; align-items: center; gap: 1rem;
+      opacity: 0; animation: fadeUp 0.5s ease forwards 0.5s;
+    }
+
+    .meta-pill {
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 0.18rem 0.6rem; border-radius: 3px;
+      font-size: 0.62rem; letter-spacing: 0.1em;
+    }
+
+    /* ── REVEAL ── */
+    .reveal {
+      opacity: 0; transform: translateY(22px);
+      transition: opacity 0.65s ease, transform 0.65s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── TYPE ── */
+    .lede {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(1.15rem, 2.5vw, 1.3rem);
+      color: var(--headline); line-height: 1.8;
+      margin-top: 2.5rem; font-weight: 300;
+    }
+
+    .essay-body p {
+      font-size: 1.02rem; color: var(--body);
+      line-height: 1.88; margin-bottom: 1.75rem;
+    }
+
+    strong { color: var(--headline); font-weight: 500; }
+
+    .section-label {
+      display: flex; align-items: center; gap: 0.75rem;
+      margin: 3.5rem 0 1.75rem;
+    }
+    .section-label span {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem; color: var(--accent);
+      letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap;
+    }
+    .section-label::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    .pullquote {
+      margin: 3rem 0;
+      padding: 1.25rem 0 1.25rem 2rem;
+      border-left: 2px solid transparent;
+      background: linear-gradient(var(--bg), var(--bg)) padding-box,
+                  linear-gradient(180deg, var(--accent), var(--accent-2)) border-box;
+    }
+    .pullquote p {
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      font-size: clamp(1.1rem, 2.5vw, 1.3rem);
+      color: var(--headline); line-height: 1.6; margin: 0;
+    }
+
+    .analogy-card {
+      background: var(--surface);
+      border: 1px solid var(--border-bright);
+      border-radius: 10px;
+      padding: 1.5rem 1.75rem;
+      margin: 2rem 0;
+      position: relative; overflow: hidden;
+    }
+    .analogy-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at top left, var(--accent-dim), transparent 70%);
+      pointer-events: none;
+    }
+    .analogy-tag {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.63rem; color: var(--accent-2);
+      letter-spacing: 0.12em; text-transform: uppercase;
+      margin-bottom: 0.65rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .analogy-tag::before { content: '◆'; font-size: 0.45rem; }
+    .analogy-card p { font-size: 0.97rem; color: var(--body); line-height: 1.8; margin: 0; }
+    .analogy-card p em { color: var(--headline); font-style: normal; font-weight: 500; }
+
+    /* ════════════════════════════════════
+       WIDGET SHELL
+    ════════════════════════════════════ */
+    .widget {
+      background: var(--surface);
+      border: 1px solid var(--border-bright);
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 2.5rem 0;
+    }
+
+    .widget-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    }
+
+    .widget-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem; color: var(--muted);
+      letter-spacing: 0.09em; text-transform: uppercase;
+    }
+
+    .widget-body { padding: 1.5rem; }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 1: TRUST GRADIENT DIAL
+    ════════════════════════════════════ */
+    .trust-gradient-widget .widget-body {
+      display: flex; flex-direction: column; gap: 1.5rem;
+    }
+
+    .dial-scenario {
+      font-family: 'Fraunces', serif;
+      font-size: 1.05rem; color: var(--headline);
+      font-style: italic; text-align: center;
+      min-height: 28px;
+      transition: opacity 0.3s;
+    }
+
+    .dial-wrap {
+      display: flex; align-items: center; gap: 1rem;
+    }
+    .dial-end-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.62rem; color: var(--muted);
+      letter-spacing: 0.07em; white-space: nowrap; width: 90px;
+    }
+    .dial-end-label:last-child { text-align: right; }
+
+    input#trust-dial {
+      -webkit-appearance: none; appearance: none;
+      flex: 1; height: 6px;
+      background: linear-gradient(90deg, var(--accent-2), var(--accent-3), var(--accent-red));
+      border-radius: 3px; outline: none; cursor: pointer;
+    }
+    input#trust-dial::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--headline);
+      box-shadow: 0 0 0 3px var(--bg), 0 0 12px var(--accent-glow);
+      cursor: pointer;
+      transition: box-shadow 0.2s;
+    }
+    input#trust-dial::-webkit-slider-thumb:hover {
+      box-shadow: 0 0 0 3px var(--bg), 0 0 20px var(--accent-glow);
+    }
+
+    .governance-layers {
+      display: flex; flex-direction: column; gap: 0.55rem;
+    }
+
+    .gov-layer {
+      display: flex; align-items: center; gap: 0.85rem;
+      padding: 0.65rem 1rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      transition: all 0.4s ease;
+      opacity: 0.25;
+    }
+
+    .gov-layer.active {
+      opacity: 1;
+      border-color: var(--layer-color, var(--accent));
+      background: color-mix(in srgb, var(--layer-color, var(--accent)) 8%, var(--surface-2));
+    }
+
+    .gov-layer-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--layer-color, var(--muted));
+      flex-shrink: 0;
+      box-shadow: 0 0 6px var(--layer-color, transparent);
+    }
+
+    .gov-layer-name {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem; color: var(--body);
+      letter-spacing: 0.06em; flex: 1;
+    }
+
+    .gov-layer.active .gov-layer-name { color: var(--headline); }
+
+    .gov-layer-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.58rem;
+      padding: 0.15rem 0.5rem; border-radius: 3px;
+      color: var(--layer-color, var(--muted));
+      border: 1px solid var(--layer-color, var(--border));
+      background: color-mix(in srgb, var(--layer-color, var(--muted)) 10%, transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .gov-layer.active .gov-layer-badge { opacity: 1; }
+
+    .trust-score {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      padding: 1rem 1rem 0;
+      flex-wrap: wrap; gap: 0.5rem;
+    }
+    .trust-score-val {
+      font-family: 'Fraunces', serif;
+      font-size: 2rem; color: var(--headline); line-height: 1;
+    }
+    .trust-score-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.62rem; color: var(--muted);
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .approval-time {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem; color: var(--accent-3);
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 2: DECISION GRAPH
+    ════════════════════════════════════ */
+    .graph-canvas-wrap {
+      position: relative;
+      background: var(--surface-2);
+      border-radius: 8px;
+      overflow: hidden;
+      min-height: 320px;
+    }
+
+    #graph-svg {
+      width: 100%; display: block;
+    }
+
+    .graph-legend {
+      display: flex; gap: 1.25rem; flex-wrap: wrap;
+      padding: 1rem 0 0;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 0.4rem;
+      font-family: 'DM Mono', monospace; font-size: 0.63rem;
+      color: var(--muted); letter-spacing: 0.06em;
+    }
+    .legend-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+
+    .graph-controls {
+      display: flex; gap: 0.65rem; flex-wrap: wrap;
+    }
+
+    .graph-btn {
+      font-family: 'DM Mono', monospace; font-size: 0.65rem;
+      padding: 0.35rem 0.85rem; border-radius: 5px;
+      border: 1px solid var(--border-bright);
+      background: var(--surface-2); color: var(--muted);
+      cursor: pointer; letter-spacing: 0.06em;
+      transition: all 0.2s;
+    }
+    .graph-btn:hover, .graph-btn.active {
+      border-color: var(--accent); color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 3: PROOF OBJECT ASSEMBLER
+    ════════════════════════════════════ */
+    .proof-assembler { padding: 0; }
+
+    .proof-trigger-row {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    }
+
+    .proof-scenario {
+      font-family: 'Fraunces', serif;
+      font-size: 1rem; color: var(--headline);
+      font-style: italic;
+    }
+
+    .proof-run-btn {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      padding: 0.5rem 1.1rem; border-radius: 6px;
+      background: var(--accent); color: #fff;
+      border: none; cursor: pointer;
+      letter-spacing: 0.07em;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .proof-run-btn:hover { background: color-mix(in srgb, var(--accent) 80%, white); }
+    .proof-run-btn:disabled { opacity: 0.5; cursor: default; }
+
+    .proof-object-body {
+      padding: 1.25rem 1.5rem;
+      display: flex; flex-direction: column; gap: 0.5rem;
+      min-height: 200px;
+    }
+
+    .proof-field {
+      display: flex; gap: 0.75rem;
+      padding: 0.6rem 0.85rem;
+      background: var(--surface-2);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      opacity: 0;
+      transform: translateX(-10px);
+      transition: opacity 0.35s ease, transform 0.35s ease, border-color 0.3s;
+    }
+    .proof-field.show { opacity: 1; transform: translateX(0); }
+    .proof-field:hover { border-color: var(--accent-dim); }
+
+    .proof-field-key {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--accent); letter-spacing: 0.06em;
+      width: 150px; flex-shrink: 0;
+    }
+    .proof-field-val {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--body); line-height: 1.5;
+    }
+    .proof-field-val .ok { color: var(--accent-2); }
+    .proof-field-val .warn { color: var(--accent-3); }
+    .proof-field-val .fail { color: var(--accent-red); }
+
+    .proof-status-bar {
+      padding: 0.85rem 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    }
+
+    .proof-status-label {
+      font-family: 'DM Mono', monospace; font-size: 0.65rem;
+      color: var(--muted); letter-spacing: 0.08em;
+    }
+    .proof-status-val {
+      font-family: 'Fraunces', serif; font-size: 1.1rem;
+      color: var(--accent-2);
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 4: POLICY vs PROMPT DIFF
+    ════════════════════════════════════ */
+    .policy-diff-panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+    @media (max-width: 580px) {
+      .policy-diff-panels { grid-template-columns: 1fr; }
+    }
+
+    .diff-panel {
+      padding: 1.4rem;
+    }
+    .diff-panel:first-child { border-right: 1px solid var(--border); }
+    @media (max-width: 580px) {
+      .diff-panel:first-child { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+
+    .diff-panel-label {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      margin-bottom: 0.85rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .diff-panel-label.old { color: var(--accent-red); }
+    .diff-panel-label.new { color: var(--accent-2); }
+
+    .diff-era {
+      font-family: 'DM Mono', monospace; font-size: 0.63rem;
+      padding: 0.15rem 0.55rem; border-radius: 3px;
+    }
+    .diff-era.old { background: rgba(247,106,106,0.1); color: var(--accent-red); border: 1px solid rgba(247,106,106,0.25); }
+    .diff-era.new { background: rgba(45,212,168,0.08); color: var(--accent-2); border: 1px solid rgba(45,212,168,0.25); }
+
+    .diff-code {
+      font-family: 'DM Mono', monospace; font-size: 0.74rem;
+      line-height: 1.85; color: var(--body);
+      white-space: pre-wrap;
+    }
+    .diff-code .comment { color: var(--muted); }
+    .diff-code .key { color: var(--accent); }
+    .diff-code .val { color: var(--accent-3); }
+    .diff-code .ok { color: var(--accent-2); }
+    .diff-code .bad { color: var(--accent-red); }
+
+    .diff-toggle-row {
+      display: flex; gap: 0.5rem; flex-wrap: wrap;
+    }
+    .diff-toggle {
+      font-family: 'DM Mono', monospace; font-size: 0.63rem;
+      padding: 0.3rem 0.75rem; border-radius: 5px;
+      border: 1px solid var(--border-bright);
+      background: transparent; color: var(--muted);
+      cursor: pointer; letter-spacing: 0.06em;
+      transition: all 0.2s;
+    }
+    .diff-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 5: AUTONOMY PARADOX
+    ════════════════════════════════════ */
+    .paradox-chart {
+      position: relative;
+      padding: 1rem 0 1.5rem;
+      min-height: 220px;
+    }
+
+    #paradox-svg { width: 100%; display: block; }
+
+    .paradox-annotations {
+      display: flex; gap: 1.5rem; flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+    .p-anno {
+      display: flex; align-items: center; gap: 0.45rem;
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--muted); letter-spacing: 0.06em;
+    }
+    .p-anno-line {
+      width: 24px; height: 2px; border-radius: 1px;
+    }
+
+    /* ── CONCEPT CARDS GRID ── */
+    .concept-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem; margin: 2rem 0;
+    }
+    @media (max-width: 520px) { .concept-grid { grid-template-columns: 1fr; } }
+
+    .concept-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.4rem;
+      transition: border-color 0.3s, transform 0.3s;
+      position: relative; overflow: hidden;
+    }
+    .concept-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .concept-card::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at bottom right, var(--accent-dim), transparent 65%);
+      opacity: 0; transition: opacity 0.4s; pointer-events: none;
+    }
+    .concept-card:hover::after { opacity: 1; }
+
+    .concept-tag {
+      font-family: 'DM Mono', monospace; font-size: 0.6rem;
+      color: var(--accent-3); letter-spacing: 0.1em;
+      text-transform: uppercase; margin-bottom: 0.45rem;
+    }
+    .concept-title {
+      font-family: 'Fraunces', serif; font-size: 1.05rem;
+      color: var(--headline); font-weight: 400; margin-bottom: 0.6rem;
+    }
+    .concept-body { font-size: 0.88rem; color: var(--body); line-height: 1.75; }
+
+    footer {
+      margin-top: 5rem; padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--muted); letter-spacing: 0.06em;
+      display: flex; justify-content: space-between;
+    }
+
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes dash {
+      to { stroke-dashoffset: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1; transform: none; transition: none; }
+      * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+<div id="cursor-glow"></div>
+
+<div class="wrapper">
+
+  <a href="../index.html" class="back-link">← BACK TO ARCHITECT</a>
+
+  <header class="essay-header">
+    <div class="eyebrow">// GOVERNED INTELLIGENCE</div>
+    <h1 class="essay-title">Verifiability &amp; Governance<br><em>From "Trust Me" to "Prove It"</em></h1>
+    <div class="subtitle">How accountability infrastructure is becoming the substrate on which trustworthy AI autonomy is built</div>
+    <div class="meta">
+      <span class="meta-pill">ARCHITECTURAL + CONCEPTUAL</span>
+      JUNE 2026 &nbsp;·&nbsp; 8 MIN READ
+    </div>
+  </header>
+
+  <!-- LEDE -->
+  <div class="reveal" style="margin-top: 2.5rem;">
+    <p class="lede">
+      The next generation of AI systems will not be judged by how intelligent they appear. They will be judged by how reliably they can justify every action they take. Intelligence without accountability is becoming a liability — and the defining architectural shift of this era is from generative capability to governed execution.
+    </p>
+  </div>
+
+  <div class="essay-body reveal" style="margin-top: 1.75rem;">
+    <p>
+      Across enterprises, governments, and regulated industries, production-grade AI is being rebuilt with strict guardrails, deterministic state machines, human-approval gates, policy engines, immutable audit trails, and continuous verification layers. The era of the unconstrained LLM improvising entire workflows is ending. What replaces it is something more powerful: <strong>AI that operates within explicitly defined boundaries where every decision can be inspected, replayed, and justified.</strong>
+    </p>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · The Core Shift</div>
+    <p>
+      Think of a courtroom. A witness who says <em>"trust me, I know what happened"</em> carries far less weight than one who produces timestamps, receipts, corroborating statements, and a chain of evidence. AI is undergoing the same transition — from witness to barrister. The model isn't just expected to produce the right answer. It's expected to <em>make its case</em>, source by source, step by step, with a record that survives cross-examination.
+    </p>
+  </div>
+
+  <div class="pullquote reveal">
+    <p>"Intelligence without accountability is becoming a liability. The question is no longer what did the AI decide — but can it prove why that decision was acceptable."</p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 1: TRUST GRADIENT
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>The Trust Gradient — Risk-Adjusted Governance</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Not every AI action deserves equal scrutiny. Future systems will dynamically adjust governance according to the risk profile of each decision. A spelling correction needs no oversight. A $20 million wire transfer needs a full governance stack. The same model, the same architecture — but a completely different set of guardrails activated based on what's at stake.
+    </p>
+  </div>
+
+  <div class="widget trust-gradient-widget reveal" id="trust-widget">
+    <div class="widget-header">
+      <div class="widget-label">Trust Gradient — Drag to Set Risk Level</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);">GOVERNANCE LAYERS STACK WITH RISK</div>
+    </div>
+    <div class="widget-body">
+      <div class="dial-scenario" id="dial-scenario">Fixing a spelling error in a document</div>
+
+      <div class="dial-wrap">
+        <div class="dial-end-label">LOW RISK<br>MINIMAL GATES</div>
+        <input type="range" id="trust-dial" min="0" max="100" value="5">
+        <div class="dial-end-label" style="text-align:right;">HIGH RISK<br>FULL STACK</div>
+      </div>
+
+      <div class="governance-layers" id="gov-layers">
+        <div class="gov-layer" data-threshold="0" style="--layer-color: #2dd4a8">
+          <div class="gov-layer-dot"></div>
+          <div class="gov-layer-name">Inline model response</div>
+          <div class="gov-layer-badge">ALWAYS ON</div>
+        </div>
+        <div class="gov-layer" data-threshold="15" style="--layer-color: #60a5fa">
+          <div class="gov-layer-dot"></div>
+          <div class="gov-layer-name">Confidence threshold check</div>
+          <div class="gov-layer-badge">ACTIVATED</div>
+        </div>
+        <div class="gov-layer" data-threshold="30" style="--layer-color: #60a5fa">
+          <div class="gov-layer-dot"></div>
+          <div class="gov-layer-name">Policy engine evaluation</div>
+          <div class="gov-layer-badge">ACTIVATED</div>
+        </div>
+        <div class="gov-layer" data-threshold="45" style="--layer-color: #f5a623">
+          <div class="gov-layer-dot"></div>
+          <div class="gov-layer-name">Anomaly detection scan</div>
+          <div class="gov-layer-badge">ACTIVATED</div>
+        </div>
+        <div class="gov-layer" data-threshold="60" style="--layer-color: #f5a623">
+          <div class="gov-layer-dot"></div>
+          <div class="gov-layer-name">Multi-model consensus</div>
+          <div class="gov-layer-badge">ACTIVATED</div>
+        </div>
+        <div class="gov-layer" data-threshold="75" style="--layer-color: #c084fc">
+          <div class="gov-layer-dot"></div>
+          <div class="gov-layer-name">Human approval gate</div>
+          <div class="gov-layer-badge">ACTIVATED</div>
+        </div>
+        <div class="gov-layer" data-threshold="88" style="--layer-color: #f76a6a">
+          <div class="gov-layer-dot"></div>
+          <div class="gov-layer-name">Regulatory validation + cryptographic signing</div>
+          <div class="gov-layer-badge">ACTIVATED</div>
+        </div>
+      </div>
+
+      <div class="trust-score">
+        <div>
+          <div class="trust-score-label">ACTIVE GOVERNANCE LAYERS</div>
+          <div class="trust-score-val" id="layer-count">1 / 7</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="trust-score-label">EST. APPROVAL TIME</div>
+          <div class="approval-time" id="approval-time">&lt; 100ms</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · Trust Gradient</div>
+    <p>
+      An airport security system operates exactly this way. A passenger walking through a domestic terminal gets a metal detector. A cargo shipment crossing international borders gets X-ray, canine inspection, manifest cross-checking, and customs officer review. <em>The infrastructure scales to the risk.</em> AI governance is becoming the same — not a fixed overhead, but a dynamically assembled checkpoint stack that matches the stakes of the action.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 2: DECISION GRAPH
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Decision Graphs — Observable Cognition</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Instead of prompting an LLM to "figure everything out" in a single opaque leap, modern architectures decompose reasoning into explicit graphs. Each node is a transparent micro-decision — a retrieval, a verification, a policy evaluation, a human approval. The graph itself becomes a living explanation of how the answer emerged. <strong>Hidden cognition becomes observable cognition.</strong>
+    </p>
+  </div>
+
+  <div class="widget reveal" id="graph-widget">
+    <div class="widget-header">
+      <div class="widget-label">Decision Graph Visualizer</div>
+      <div class="graph-controls">
+        <button class="graph-btn active" id="btn-governed">Governed Path</button>
+        <button class="graph-btn" id="btn-opaque">Opaque LLM</button>
+      </div>
+    </div>
+    <div class="widget-body">
+      <div class="graph-canvas-wrap">
+        <svg id="graph-svg" viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="graph-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#2dd4a8"></div>Verified Retrieval</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>Policy Eval</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#c084fc"></div>Human Approval</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f5a623"></div>Computation</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f76a6a"></div>Opaque LLM</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · Decision Graphs</div>
+    <p>
+      An aircraft's black box doesn't just record whether the plane landed safely — it records every micro-reading from every sensor, every control input, every second of the flight. If something goes wrong, investigators can replay the exact sequence of decisions that led there. <em>A decision graph is the AI equivalent of the black box</em> — except it runs forward in real time, making the reasoning visible before the answer is delivered, not only after something fails.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 3: PROOF OBJECT ASSEMBLER
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Proof Objects — Evidence Engines, Not Prediction Engines</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Future AI systems won't merely output conclusions. They will produce accompanying <strong>proof objects</strong> — structured records containing sources consulted, reasoning checkpoints, policy evaluations, confidence estimates, human approvals, and execution history. Every important action becomes independently reviewable. This marks the emergence of <strong>Computational Accountability.</strong>
+    </p>
+  </div>
+
+  <div class="widget reveal" id="proof-widget">
+    <div class="widget-header">
+      <div class="widget-label">Proof Object Assembler</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">CLICK RUN TO ASSEMBLE EVIDENCE CHAIN</div>
+    </div>
+    <div class="proof-trigger-row">
+      <div class="proof-scenario" id="proof-scenario">"Approve $2.4M vendor payment to Acme Corp"</div>
+      <button class="proof-run-btn" id="proof-run-btn">▶ Run &amp; Prove</button>
+    </div>
+    <div class="proof-object-body" id="proof-body">
+      <div style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);text-align:center;padding:2rem 0;letter-spacing:0.08em;">
+        // AWAITING EXECUTION — PRESS RUN TO ASSEMBLE PROOF OBJECT
+      </div>
+    </div>
+    <div class="proof-status-bar">
+      <div class="proof-status-label">PROOF STATUS</div>
+      <div class="proof-status-val" id="proof-status">—</div>
+    </div>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · Proof Objects</div>
+    <p>
+      A pharmaceutical company can't just ship a drug and say "it works." They must produce a clinical trial package: patient data, dosage records, adverse event logs, peer review, regulatory sign-off — a structured proof object that any auditor in the world can inspect and replay. <em>AI proof objects are the clinical trial package for machine decisions</em> — not an afterthought, but the primary deliverable alongside the answer itself.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 4: POLICY vs PROMPT DIFF
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Policy Engineering — The Successor to Prompt Engineering</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Today, enormous effort goes into crafting prompts. Tomorrow, organizations will invest far more in authoring <strong>machine-readable policies</strong> — financial compliance rules, medical protocols, ethical constraints, regional regulations — that become executable constraints shaping every model response. Prompt engineering evolves into Policy Engineering.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="policy-widget">
+    <div class="widget-header">
+      <div class="widget-label">Prompt Engineering → Policy Engineering</div>
+      <div class="diff-toggle-row">
+        <button class="diff-toggle active" data-domain="finance">Finance</button>
+        <button class="diff-toggle" data-domain="medical">Medical</button>
+        <button class="diff-toggle" data-domain="legal">Legal</button>
+      </div>
+    </div>
+    <div class="policy-diff-panels">
+      <div class="diff-panel">
+        <div class="diff-panel-label old">TODAY — PROMPT ENGINEERING <span class="diff-era old">2024</span></div>
+        <div class="diff-code" id="prompt-code"></div>
+      </div>
+      <div class="diff-panel">
+        <div class="diff-panel-label new">TOMORROW — POLICY ENGINEERING <span class="diff-era new">2026+</span></div>
+        <div class="diff-code" id="policy-code"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · Policy Engineering</div>
+    <p>
+      A city doesn't tell every driver individually how to navigate — it installs traffic laws, signs, and signals that govern everyone automatically. Prompt engineering is like a police officer directing each car by hand at an intersection. Policy engineering is building the traffic system itself: <em>rules encoded into infrastructure that operate continuously without human intervention at the point of execution</em>.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 5: AUTONOMY PARADOX
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>The Governance Paradox — Constraint Enables Autonomy</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Governance is often viewed as bureaucracy layered on top of AI — a drag on speed and capability. The opposite is true. Well-governed systems earn broader permissions, automate larger workflows, execute higher-value transactions, and interact with more sensitive infrastructure. <strong>The safest AI becomes the most autonomous AI. Freedom increasingly comes from constraint.</strong>
+    </p>
+  </div>
+
+  <div class="widget reveal" id="paradox-widget">
+    <div class="widget-header">
+      <div class="widget-label">The Autonomy Paradox — Governance vs. Capability</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">HOVER POINTS TO INSPECT</div>
+    </div>
+    <div class="widget-body">
+      <div class="paradox-chart">
+        <svg id="paradox-svg" viewBox="0 0 680 200" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="paradox-annotations">
+        <div class="p-anno">
+          <div class="p-anno-line" style="background:var(--accent-red)"></div>
+          UNGOVERNED — Capability declines as trust collapses
+        </div>
+        <div class="p-anno">
+          <div class="p-anno-line" style="background:var(--accent-2)"></div>
+          GOVERNED — Capability expands as trust compounds
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT CARDS -->
+  <div class="section-label reveal"><span>Emerging Architectural Primitives</span></div>
+
+  <div class="concept-grid">
+
+    <div class="concept-card reveal">
+      <div class="concept-tag">Concept</div>
+      <div class="concept-title">Executable Constitution</div>
+      <div class="concept-body">An explicit, machine-readable governance layer defining what may happen, what cannot happen, escalation paths, approval requirements, and recovery procedures. Unlike human memory, perfectly repeatable.</div>
+    </div>
+
+    <div class="concept-card reveal">
+      <div class="concept-tag">Concept</div>
+      <div class="concept-title">Decision Provenance</div>
+      <div class="concept-body">Extending observability beyond infrastructure into cognition itself. Every recommendation includes evidence chains, rejected alternatives, confidence evolution, and final rationale. Replayable reasoning.</div>
+    </div>
+
+    <div class="concept-card reveal">
+      <div class="concept-tag">Concept</div>
+      <div class="concept-title">Reality Anchoring</div>
+      <div class="concept-body">Not just hallucination prevention — every important statement anchored to an independently verifiable observation via RAG, live data validation, cross-model consensus, and provenance tracking.</div>
+    </div>
+
+    <div class="concept-card reveal">
+      <div class="concept-tag">Concept</div>
+      <div class="concept-title">Synthetic Bureaucracy</div>
+      <div class="concept-body">AI bureaucracy exists because machines remember everything. Instead of slowing work, it accelerates it — auto-generating compliance docs, audit packages, and regulatory reports as a byproduct of execution.</div>
+    </div>
+
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Final Analogy · The Big Picture</div>
+    <p>
+      A nuclear power plant is one of the most constrained environments on Earth — every valve, every sensor, every procedure governed by protocols, checklists, and oversight boards. And yet it produces more reliable, more consistent energy than almost any other system. <em>The constraint is not the limitation. It is the source of the capability.</em> The next generation of AI infrastructure will be built on the same principle: the most tightly governed systems will be trusted to do the most consequential work.
+    </p>
+  </div>
+
+  <div class="closing-block reveal" style="margin-top:4rem;padding-top:2.5rem;border-top:1px solid var(--border);">
+    <div class="section-label" style="margin-top:0;"><span>A New Design Principle</span></div>
+    <div class="essay-body">
+      <p>
+        The most enduring architectural principle emerging from enterprise AI is this: <strong>nothing critical should happen in a single probabilistic leap.</strong> High-impact actions are decomposed into sequences of observable, verifiable, reversible, and governable operations. Intelligence becomes less about producing an answer in one shot and more about orchestrating a chain of accountable decisions.
+      </p>
+      <p>
+        The most transformative systems will not be those that simply know the most. They will be those that can demonstrate, justify, and govern every consequential action they take. In that world, verifiability is no longer a feature layered onto AI — it becomes the very substrate on which trustworthy autonomy is built.
+      </p>
+    </div>
+  </div>
+
+  <footer>
+    <span>// GOVERNED INTELLIGENCE</span>
+    <span>JUNE 2026</span>
+  </footer>
+
+</div>
+
+<script>
+// ── PROGRESS BAR ──
+const bar = document.getElementById('progress-bar');
+window.addEventListener('scroll', () => {
+  const d = document.documentElement;
+  bar.style.width = Math.min(100, (d.scrollTop / (d.scrollHeight - d.clientHeight)) * 100) + '%';
+});
+
+// ── CURSOR GLOW ──
+const glow = document.getElementById('cursor-glow');
+document.addEventListener('mousemove', e => {
+  glow.style.left = e.clientX + 'px';
+  glow.style.top = e.clientY + 'px';
+});
+
+// ── SCROLL REVEAL ──
+const reveals = document.querySelectorAll('.reveal');
+const ro = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('visible'); ro.unobserve(e.target); }
+  });
+}, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+reveals.forEach(el => ro.observe(el));
+
+// ══════════════════════════════
+// INTERACTIVE 1: TRUST GRADIENT
+// ══════════════════════════════
+const scenarios = [
+  { max: 14, text: 'Fixing a spelling error in a document', time: '< 100ms' },
+  { max: 29, text: 'Generating a product description', time: '< 300ms' },
+  { max: 44, text: 'Sending an automated customer email', time: '< 1s' },
+  { max: 59, text: 'Updating a pricing rule in the system', time: '2–5s' },
+  { max: 74, text: 'Executing a $50,000 purchase order', time: '10–30s' },
+  { max: 87, text: 'Modifying access to sensitive infrastructure', time: '1–5 min' },
+  { max: 100, text: 'Approving a $20M international wire transfer', time: '15–60 min' }
+];
+
+const dial = document.getElementById('trust-dial');
+const scenarioEl = document.getElementById('dial-scenario');
+const layerCountEl = document.getElementById('layer-count');
+const approvalTimeEl = document.getElementById('approval-time');
+const layers = document.querySelectorAll('.gov-layer');
+
+function updateTrustGradient() {
+  const v = parseInt(dial.value);
+  const scenario = scenarios.find(s => v <= s.max) || scenarios[scenarios.length - 1];
+  scenarioEl.textContent = scenario.text;
+  approvalTimeEl.textContent = scenario.time;
+
+  let active = 0;
+  layers.forEach(layer => {
+    const threshold = parseInt(layer.dataset.threshold);
+    if (v >= threshold) { layer.classList.add('active'); active++; }
+    else { layer.classList.remove('active'); }
+  });
+  layerCountEl.textContent = active + ' / 7';
+}
+
+dial.addEventListener('input', updateTrustGradient);
+updateTrustGradient();
+
+// ══════════════════════════════
+// INTERACTIVE 2: DECISION GRAPH
+// ══════════════════════════════
+const svg = document.getElementById('graph-svg');
+let graphMode = 'governed';
+
+const governedNodes = [
+  { id: 'input', x: 40, y: 150, label: 'INPUT', color: '#6655e8', r: 22 },
+  { id: 'retrieve', x: 150, y: 80, label: 'RETRIEVAL', color: '#2dd4a8', r: 20 },
+  { id: 'validate', x: 260, y: 60, label: 'VALIDATE', color: '#2dd4a8', r: 20 },
+  { id: 'policy', x: 150, y: 220, label: 'POLICY', color: '#60a5fa', r: 20 },
+  { id: 'compute', x: 370, y: 150, label: 'COMPUTE', color: '#f5a623', r: 20 },
+  { id: 'human', x: 480, y: 80, label: 'HUMAN', color: '#c084fc', r: 20 },
+  { id: 'sign', x: 480, y: 220, label: 'SIGN', color: '#60a5fa', r: 20 },
+  { id: 'output', x: 620, y: 150, label: 'OUTPUT', color: '#2dd4a8', r: 22 }
+];
+
+const governedEdges = [
+  ['input','retrieve'], ['input','policy'],
+  ['retrieve','validate'], ['validate','compute'],
+  ['policy','compute'], ['compute','human'],
+  ['compute','sign'], ['human','output'], ['sign','output']
+];
+
+const opaqueNodes = [
+  { id: 'in', x: 80, y: 150, label: 'INPUT', color: '#6655e8', r: 22 },
+  { id: 'llm', x: 360, y: 150, label: 'LLM ??', color: '#f76a6a', r: 55 },
+  { id: 'out', x: 630, y: 150, label: 'OUTPUT', color: '#f76a6a', r: 22 }
+];
+const opaqueEdges = [['in','llm'],['llm','out']];
+
+function buildGraph(nodes, edges) {
+  svg.innerHTML = '';
+
+  // defs
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  defs.innerHTML = `<marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+    <path d="M0,0 L0,6 L6,3 z" fill="#2a2a45"/>
+  </marker>`;
+  svg.appendChild(defs);
+
+  // find node by id
+  const nodeMap = {};
+  nodes.forEach(n => nodeMap[n.id] = n);
+
+  // edges
+  edges.forEach(([from, to]) => {
+    const a = nodeMap[from], b = nodeMap[to];
+    if (!a || !b) return;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    const nx = dx/len, ny = dy/len;
+    const x1 = a.x + nx * a.r, y1 = a.y + ny * a.r;
+    const x2 = b.x - nx * b.r, y2 = b.y - ny * b.r;
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('stroke', '#252545'); line.setAttribute('stroke-width', '1.5');
+    line.setAttribute('marker-end', 'url(#arrow)');
+    const totalLen = Math.sqrt((x2-x1)**2+(y2-y1)**2);
+    line.style.strokeDasharray = totalLen;
+    line.style.strokeDashoffset = totalLen;
+    line.style.animation = `dash 0.6s ease forwards ${Math.random()*0.4}s`;
+    svg.appendChild(line);
+  });
+
+  // nodes
+  nodes.forEach((n, i) => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.style.cursor = 'pointer';
+
+    const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx', n.x); circle.setAttribute('cy', n.y); circle.setAttribute('r', n.r);
+    circle.setAttribute('fill', `color-mix(in srgb, ${n.color} 15%, #0d0d1c)`);
+    circle.setAttribute('stroke', n.color); circle.setAttribute('stroke-width', '1.5');
+    circle.style.opacity = '0';
+    circle.style.transition = 'all 0.2s';
+    setTimeout(() => { circle.style.opacity = '1'; }, i * 80);
+
+    const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+    text.setAttribute('x', n.x); text.setAttribute('y', n.y + 1);
+    text.setAttribute('text-anchor', 'middle'); text.setAttribute('dominant-baseline', 'middle');
+    text.setAttribute('fill', n.color); text.setAttribute('font-size', '7');
+    text.setAttribute('font-family', 'DM Mono, monospace'); text.setAttribute('letter-spacing', '0.05em');
+    text.textContent = n.label;
+
+    g.addEventListener('mouseenter', () => {
+      circle.setAttribute('stroke-width', '2.5');
+      circle.setAttribute('filter', `drop-shadow(0 0 8px ${n.color}88)`);
+    });
+    g.addEventListener('mouseleave', () => {
+      circle.setAttribute('stroke-width', '1.5');
+      circle.removeAttribute('filter');
+    });
+
+    g.appendChild(circle); g.appendChild(text);
+    svg.appendChild(g);
+  });
+}
+
+buildGraph(governedNodes, governedEdges);
+
+document.getElementById('btn-governed').addEventListener('click', function() {
+  graphMode = 'governed';
+  this.classList.add('active');
+  document.getElementById('btn-opaque').classList.remove('active');
+  buildGraph(governedNodes, governedEdges);
+});
+document.getElementById('btn-opaque').addEventListener('click', function() {
+  graphMode = 'opaque';
+  this.classList.add('active');
+  document.getElementById('btn-governed').classList.remove('active');
+  buildGraph(opaqueNodes, opaqueEdges);
+});
+
+// ══════════════════════════════
+// INTERACTIVE 3: PROOF OBJECT ASSEMBLER
+// ══════════════════════════════
+const proofFields = [
+  { key: 'action_id', val: '<span class="ok">TXN-2024-A9F2C</span>' },
+  { key: 'timestamp', val: '<span class="ok">2026-06-26T14:32:07Z</span>' },
+  { key: 'sources_consulted', val: 'vendor_db[v2.1], compliance_rules[v8], contract_archive[2024]' },
+  { key: 'policy_eval', val: '<span class="ok">PASSED</span> — AML check, sanctions list, credit limit' },
+  { key: 'confidence', val: '<span class="ok">0.97</span> (threshold: 0.90)' },
+  { key: 'anomaly_score', val: '<span class="ok">0.04</span> (threshold: 0.25) — no flags' },
+  { key: 'human_approval', val: '<span class="ok">SIGNED</span> — J.Hargreaves @ 14:31:52Z (verified)' },
+  { key: 'rejected_alternatives', val: 'Partial payment [conf:0.61], Hold [conf:0.44]' },
+  { key: 'regulatory_sign', val: '<span class="ok">VALID</span> — SHA-256 · Ref: REG-FIN-2024-0047' },
+  { key: 'execution_hash', val: '<span class="ok">a3f9c2...7e1d04</span> — immutable log written' },
+  { key: 'proof_status', val: '<span class="ok">APPROVED — FULLY VERIFIED</span>' }
+];
+
+const proofBtn = document.getElementById('proof-run-btn');
+const proofBody = document.getElementById('proof-body');
+const proofStatus = document.getElementById('proof-status');
+
+proofBtn.addEventListener('click', function() {
+  this.disabled = true;
+  proofBody.innerHTML = '';
+  proofStatus.textContent = 'Assembling...';
+  proofStatus.style.color = 'var(--accent-3)';
+
+  proofFields.forEach((field, i) => {
+    const div = document.createElement('div');
+    div.className = 'proof-field';
+    div.innerHTML = `<div class="proof-field-key">${field.key}</div><div class="proof-field-val">${field.val}</div>`;
+    proofBody.appendChild(div);
+    setTimeout(() => div.classList.add('show'), i * 140 + 80);
+  });
+
+  setTimeout(() => {
+    proofStatus.textContent = '✓ Proof Object Complete — Replayable & Auditable';
+    proofStatus.style.color = 'var(--accent-2)';
+    proofBtn.textContent = '↺ Re-run';
+    proofBtn.disabled = false;
+  }, proofFields.length * 140 + 300);
+});
+
+// ══════════════════════════════
+// INTERACTIVE 4: POLICY vs PROMPT
+// ══════════════════════════════
+const policyData = {
+  finance: {
+    prompt: `<span class="comment">// 2024 APPROACH — NATURAL LANGUAGE PROMPT</span>
+
+You are a financial assistant. Please be careful
+about compliance when answering questions. Try
+to follow relevant regulations and don't do
+anything illegal. Be helpful but cautious with
+money-related requests.
+
+<span class="bad">// ❌ Vague, unenforceable, inconsistent</span>
+<span class="bad">// ❌ Different model = different behavior</span>
+<span class="bad">// ❌ No audit trail</span>`,
+    policy: `<span class="comment">// 2026+ APPROACH — EXECUTABLE POLICY</span>
+
+<span class="key">policy</span>: <span class="val">financial_ops_v3.2</span>
+  <span class="key">max_transaction</span>: <span class="val">50000</span>
+  <span class="key">require_approval_above</span>: <span class="val">10000</span>
+  <span class="key">sanctions_check</span>: <span class="val">MANDATORY</span>
+  <span class="key">aml_threshold</span>: <span class="val">0.15</span>
+  <span class="key">audit_log</span>: <span class="val">IMMUTABLE</span>
+  <span class="key">jurisdiction</span>: [<span class="ok">US</span>, <span class="ok">EU</span>]
+
+<span class="ok">// ✓ Machine-enforceable, versioned</span>
+<span class="ok">// ✓ Identical behavior across all models</span>
+<span class="ok">// ✓ Full audit trail by default</span>`
+  },
+  medical: {
+    prompt: `<span class="comment">// 2024 APPROACH — NATURAL LANGUAGE PROMPT</span>
+
+You are a medical AI assistant. Always be safe
+and accurate. Don't give dangerous advice.
+Recommend consulting a doctor when appropriate.
+Be careful with drug interactions.
+
+<span class="bad">// ❌ "Be careful" is not a constraint</span>
+<span class="bad">// ❌ No dosage limits enforced</span>
+<span class="bad">// ❌ No escalation path defined</span>`,
+    policy: `<span class="comment">// 2026+ APPROACH — EXECUTABLE POLICY</span>
+
+<span class="key">policy</span>: <span class="val">clinical_decision_v1.8</span>
+  <span class="key">dosage_override</span>: <span class="val">BLOCKED</span>
+  <span class="key">contraindication_check</span>: <span class="val">MANDATORY</span>
+  <span class="key">escalate_on_risk_score</span>: <span class="val">> 0.7</span>
+  <span class="key">human_review_required</span>: [<span class="ok">oncology</span>, <span class="ok">pediatric</span>]
+  <span class="key">regulatory_ref</span>: <span class="val">FDA-2024-AI-002</span>
+  <span class="key">liability_log</span>: <span class="val">IMMUTABLE</span>
+
+<span class="ok">// ✓ Dosage limits machine-enforced</span>
+<span class="ok">// ✓ Risk escalation automatic</span>
+<span class="ok">// ✓ Regulatory reference embedded</span>`
+  },
+  legal: {
+    prompt: `<span class="comment">// 2024 APPROACH — NATURAL LANGUAGE PROMPT</span>
+
+You are a legal assistant. Be accurate and
+don't give incorrect legal advice. Mention
+that you're not a lawyer. Be careful with
+jurisdiction differences. Stay ethical.
+
+<span class="bad">// ❌ "Stay ethical" undefined</span>
+<span class="bad">// ❌ No jurisdiction enforcement</span>
+<span class="bad">// ❌ Privilege protection not enforced</span>`,
+    policy: `<span class="comment">// 2026+ APPROACH — EXECUTABLE POLICY</span>
+
+<span class="key">policy</span>: <span class="val">legal_ops_v2.4</span>
+  <span class="key">jurisdiction_scope</span>: [<span class="ok">US-CA</span>, <span class="ok">UK</span>]
+  <span class="key">privilege_protection</span>: <span class="val">ENFORCED</span>
+  <span class="key">citation_required</span>: <span class="val">MANDATORY</span>
+  <span class="key">conflict_check</span>: <span class="val">AUTO</span>
+  <span class="key">bar_association_ref</span>: <span class="val">ABA-2024-AI</span>
+  <span class="key">disclosure_required</span>: <span class="val">AI_ASSISTED</span>
+
+<span class="ok">// ✓ Scope hard-constrained by jurisdiction</span>
+<span class="ok">// ✓ Privilege automatically enforced</span>
+<span class="ok">// ✓ Citations required by policy</span>`
+  }
+};
+
+let currentDomain = 'finance';
+
+function renderPolicy(domain) {
+  const d = policyData[domain];
+  document.getElementById('prompt-code').innerHTML = d.prompt;
+  document.getElementById('policy-code').innerHTML = d.policy;
+}
+
+document.querySelectorAll('.diff-toggle').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.diff-toggle').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    currentDomain = this.dataset.domain;
+    renderPolicy(currentDomain);
+  });
+});
+
+renderPolicy('finance');
+
+// ══════════════════════════════
+// INTERACTIVE 5: AUTONOMY PARADOX CHART
+// ══════════════════════════════
+function buildParadoxChart() {
+  const psvg = document.getElementById('paradox-svg');
+  const W = 680, H = 200, pad = { l: 60, r: 40, t: 20, b: 40 };
+  const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b;
+
+  psvg.innerHTML = '';
+
+  // axes
+  const axisColor = '#252545';
+  const axisLine = (x1,y1,x2,y2) => {
+    const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',x1); l.setAttribute('y1',y1);
+    l.setAttribute('x2',x2); l.setAttribute('y2',y2);
+    l.setAttribute('stroke',axisColor); l.setAttribute('stroke-width','1');
+    psvg.appendChild(l);
+  };
+
+  axisLine(pad.l, pad.t, pad.l, pad.t + cH);
+  axisLine(pad.l, pad.t + cH, pad.l + cW, pad.t + cH);
+
+  // axis labels
+  const makeText = (x,y,txt,color,size,anchor) => {
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',x); t.setAttribute('y',y);
+    t.setAttribute('fill',color||'#4e4d68');
+    t.setAttribute('font-size',size||'9');
+    t.setAttribute('font-family','DM Mono, monospace');
+    t.setAttribute('text-anchor',anchor||'middle');
+    t.setAttribute('letter-spacing','0.06em');
+    t.textContent = txt;
+    psvg.appendChild(t);
+    return t;
+  };
+
+  makeText(pad.l + cW/2, H - 6, 'GOVERNANCE RIGOR →', '#4e4d68', '8', 'middle');
+
+  // y-axis label rotated
+  const yt = makeText(12, pad.t + cH/2, 'CAPABILITY →', '#4e4d68', '8', 'middle');
+  yt.setAttribute('transform', `rotate(-90, 12, ${pad.t + cH/2})`);
+
+  // ungoverned curve (falls off)
+  const ungoverned = [];
+  for (let i = 0; i <= 40; i++) {
+    const t = i / 40;
+    const x = pad.l + t * cW;
+    const y = pad.t + cH * 0.15 + (cH * 0.7) * (1 - Math.exp(-t * 2)) * Math.exp(-t * 2.5);
+    ungoverned.push(`${x},${y}`);
+  }
+
+  const ugPath = document.createElementNS('http://www.w3.org/2000/svg','polyline');
+  ugPath.setAttribute('points', ungoverned.join(' '));
+  ugPath.setAttribute('fill','none');
+  ugPath.setAttribute('stroke','#f76a6a');
+  ugPath.setAttribute('stroke-width','2');
+  ugPath.setAttribute('stroke-dasharray','4,3');
+  psvg.appendChild(ugPath);
+
+  // governed curve (compounds)
+  const governed = [];
+  for (let i = 0; i <= 40; i++) {
+    const t = i / 40;
+    const x = pad.l + t * cW;
+    const y = pad.t + cH * 0.85 - (cH * 0.75) * (1 - Math.exp(-t * 4)) * t * 1.1;
+    governed.push(`${x},${Math.max(pad.t + 5, y)}`);
+  }
+
+  const govPath = document.createElementNS('http://www.w3.org/2000/svg','polyline');
+  govPath.setAttribute('points', governed.join(' '));
+  govPath.setAttribute('fill','none');
+  govPath.setAttribute('stroke','#2dd4a8');
+  govPath.setAttribute('stroke-width','2.5');
+  psvg.appendChild(govPath);
+
+  // x labels
+  ['LOW', 'MED', 'HIGH'].forEach((lbl, i) => {
+    makeText(pad.l + (i * cW / 2), pad.t + cH + 18, lbl, '#4e4d68', '7.5', 'middle');
+  });
+
+  // annotations on chart
+  makeText(pad.l + cW * 0.75, pad.t + 22, '← GOVERNED EXPANDS', '#2dd4a8', '7.5', 'middle');
+  makeText(pad.l + cW * 0.6, pad.t + cH * 0.62, 'UNGOVERNED COLLAPSES →', '#f76a6a55', '7.5', 'middle');
+
+  // tooltip dots
+  const addDot = (x, y, color, tipText) => {
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',x); c.setAttribute('cy',y); c.setAttribute('r','5');
+    c.setAttribute('fill', color); c.setAttribute('stroke','#07070f'); c.setAttribute('stroke-width','2');
+    c.style.cursor = 'pointer';
+    c.style.transition = 'r 0.2s';
+    c.addEventListener('mouseenter',()=>{ c.setAttribute('r','7'); });
+    c.addEventListener('mouseleave',()=>{ c.setAttribute('r','5'); });
+    psvg.appendChild(c);
+  };
+
+  addDot(pad.l + cW*0.3, pad.t + cH*0.25, '#f76a6a', 'Trust collapses');
+  addDot(pad.l + cW*0.7, pad.t + cH*0.12, '#2dd4a8', 'High autonomy earned');
+}
+
+// Build after DOM is ready
+const paradoxObs = new IntersectionObserver(entries => {
+  if (entries[0].isIntersecting) { buildParadoxChart(); paradoxObs.disconnect(); }
+}, { threshold: 0.3 });
+paradoxObs.observe(document.getElementById('paradox-widget'));
+</script>
+</body>
+</html>
