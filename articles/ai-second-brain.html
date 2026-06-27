@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Second Brain — Building a Knowledge Operating System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,700;1,9..144,300;1,9..144,400&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #08090c;
+      --surface: #0d0f14;
+      --surface-2: #111318;
+      --border: #1c1f28;
+      --border-bright: #262b38;
+      --accent: #e8a33a;
+      --accent-2: #2dd4a0;
+      --accent-3: #7c8ef7;
+      --accent-red: #f76a6a;
+      --accent-rose: #f472b6;
+      --accent-dim: rgba(232,163,58,0.10);
+      --accent-glow: rgba(232,163,58,0.22);
+      --headline: #eeeae0;
+      --body: #8e8c7e;
+      --muted: #484640;
+      --good: #2dd4a0;
+      --warn: #e8a33a;
+      --bad: #f76a6a;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--body);
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem; line-height: 1.75;
+      overflow-x: hidden;
+    }
+
+    body::after {
+      content: ''; position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999;
+    }
+
+    #progress-bar {
+      position: fixed; top: 0; left: 0; height: 2px; width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      z-index: 9998; box-shadow: 0 0 10px var(--accent-glow);
+      transition: width 0.1s linear;
+    }
+
+    #cursor-glow {
+      position: fixed; width: 420px; height: 420px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(232,163,58,0.04) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+      transform: translate(-50%,-50%);
+      transition: left 0.07s, top 0.07s;
+    }
+
+    .wrapper {
+      max-width: 820px; margin: 0 auto;
+      padding: 4rem 2rem 10rem;
+      position: relative; z-index: 1;
+    }
+
+    .back-link {
+      font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      color: var(--muted); text-decoration: none; letter-spacing: 0.08em;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--accent); }
+
+    /* ── HEADER ── */
+    .essay-header { margin-top: 4rem; padding-bottom: 2.5rem; border-bottom: 1px solid var(--border); }
+
+    .eyebrow {
+      font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--accent);
+      letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 1.25rem;
+      opacity: 0; transform: translateY(8px);
+      animation: fadeUp 0.5s ease forwards 0.1s;
+    }
+
+    h1.essay-title {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(2rem, 5.5vw, 3.1rem);
+      font-weight: 300; color: var(--headline);
+      line-height: 1.1; letter-spacing: -0.025em; margin-bottom: 0.75rem;
+      opacity: 0; transform: translateY(14px);
+      animation: fadeUp 0.65s ease forwards 0.22s;
+    }
+    h1.essay-title em { font-style: italic; color: var(--accent-2); }
+
+    .subtitle {
+      font-family: 'Fraunces', serif; font-size: 1.05rem;
+      color: var(--muted); font-style: italic; font-weight: 300;
+      margin-bottom: 1.5rem;
+      opacity: 0; transform: translateY(10px);
+      animation: fadeUp 0.6s ease forwards 0.35s;
+    }
+
+    .meta {
+      font-family: 'DM Mono', monospace; font-size: 0.7rem;
+      color: var(--muted); letter-spacing: 0.08em;
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      opacity: 0; animation: fadeUp 0.5s ease forwards 0.5s;
+    }
+
+    .meta-pill {
+      background: var(--accent-dim); border: 1px solid var(--accent);
+      color: var(--accent); padding: 0.18rem 0.6rem;
+      border-radius: 3px; font-size: 0.62rem; letter-spacing: 0.1em;
+    }
+
+    /* ── REVEAL ── */
+    .reveal {
+      opacity: 0; transform: translateY(22px);
+      transition: opacity 0.65s ease, transform 0.65s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── TYPE ── */
+    .lede {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(1.15rem, 2.5vw, 1.3rem);
+      color: var(--headline); line-height: 1.8;
+      margin-top: 2.5rem; font-weight: 300;
+    }
+
+    .essay-body p {
+      font-size: 1.02rem; color: var(--body); line-height: 1.88; margin-bottom: 1.75rem;
+    }
+    strong { color: var(--headline); font-weight: 500; }
+
+    .section-label {
+      display: flex; align-items: center; gap: 0.75rem;
+      margin: 3.5rem 0 1.75rem;
+    }
+    .section-label span {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--accent);
+      letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap;
+    }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .pullquote {
+      margin: 3rem 0; padding: 1.25rem 0 1.25rem 2rem;
+      border-left: 2px solid transparent;
+      background: linear-gradient(var(--bg), var(--bg)) padding-box,
+                  linear-gradient(180deg, var(--accent), var(--accent-2)) border-box;
+    }
+    .pullquote p {
+      font-family: 'Fraunces', serif; font-style: italic;
+      font-size: clamp(1.1rem, 2.5vw, 1.3rem);
+      color: var(--headline); line-height: 1.6; margin: 0;
+    }
+
+    .analogy-card {
+      background: var(--surface); border: 1px solid var(--border-bright);
+      border-radius: 10px; padding: 1.5rem 1.75rem;
+      margin: 2rem 0; position: relative; overflow: hidden;
+    }
+    .analogy-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at top left, var(--accent-dim), transparent 70%);
+      pointer-events: none;
+    }
+    .analogy-tag {
+      font-family: 'DM Mono', monospace; font-size: 0.63rem; color: var(--accent-2);
+      letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.65rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .analogy-tag::before { content: '◆'; font-size: 0.45rem; }
+    .analogy-card p { font-size: 0.97rem; color: var(--body); line-height: 1.8; margin: 0; }
+    .analogy-card p em { color: var(--headline); font-style: normal; font-weight: 500; }
+
+    /* ── WIDGET SHELL ── */
+    .widget {
+      background: var(--surface); border: 1px solid var(--border-bright);
+      border-radius: 12px; overflow: hidden; margin: 2.5rem 0;
+    }
+    .widget-header {
+      padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap;
+    }
+    .widget-label {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--muted); letter-spacing: 0.09em; text-transform: uppercase;
+    }
+    .widget-body { padding: 1.5rem; }
+
+    /* ── BUTTONS ── */
+    .pill-btn {
+      font-family: 'DM Mono', monospace; font-size: 0.63rem;
+      padding: 0.3rem 0.75rem; border-radius: 5px;
+      border: 1px solid var(--border-bright); background: transparent;
+      color: var(--muted); cursor: pointer; letter-spacing: 0.06em;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .pill-btn:hover, .pill-btn.active {
+      border-color: var(--accent); color: var(--accent); background: var(--accent-dim);
+    }
+
+    .run-btn {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      padding: 0.5rem 1.1rem; border-radius: 6px;
+      background: var(--accent); color: #08090c;
+      border: none; cursor: pointer; letter-spacing: 0.07em;
+      transition: all 0.2s; white-space: nowrap; font-weight: 500;
+    }
+    .run-btn:hover { filter: brightness(1.12); }
+    .run-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 1 — CAPTURE FLYWHEEL
+    ════════════════════════════════════ */
+    .flywheel-wrap {
+      display: flex; gap: 2rem; align-items: flex-start; flex-wrap: wrap;
+    }
+
+    .flywheel-svg-wrap {
+      flex-shrink: 0; position: relative; width: 260px; height: 260px;
+    }
+
+    #flywheel-svg { width: 260px; height: 260px; }
+
+    .flywheel-steps {
+      flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 0.5rem;
+    }
+
+    .flywheel-step {
+      padding: 0.75rem 1rem; border-radius: 7px;
+      border: 1px solid var(--border); background: var(--surface-2);
+      cursor: pointer; transition: all 0.3s;
+    }
+    .flywheel-step.active {
+      border-color: var(--step-color);
+      background: color-mix(in srgb, var(--step-color) 8%, var(--surface-2));
+    }
+    .flywheel-step-header {
+      display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.25rem;
+    }
+    .flywheel-letter {
+      font-family: 'Fraunces', serif; font-size: 1.1rem;
+      color: var(--step-color); font-weight: 700; width: 18px;
+    }
+    .flywheel-step-name {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      letter-spacing: 0.06em; color: var(--headline); text-transform: uppercase;
+    }
+    .flywheel-step-detail {
+      font-size: 0.83rem; color: var(--body); line-height: 1.65;
+      max-height: 0; overflow: hidden; transition: max-height 0.35s ease;
+    }
+    .flywheel-step.active .flywheel-step-detail { max-height: 80px; }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 2 — KNOWLEDGE COMPOUNDING
+    ════════════════════════════════════ */
+    .compound-controls {
+      display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+    }
+    .compound-ctrl {
+      display: flex; flex-direction: column; gap: 0.4rem;
+    }
+    .compound-ctrl-label {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--muted); letter-spacing: 0.08em;
+    }
+    .compound-ctrl input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      width: 140px; height: 4px;
+      background: var(--border-bright); border-radius: 2px;
+      outline: none; cursor: pointer;
+    }
+    .compound-ctrl input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--accent); cursor: pointer;
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+    .compound-ctrl-val {
+      font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--accent);
+    }
+
+    #compound-svg { width: 100%; display: block; }
+
+    .compound-stats {
+      display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 1rem;
+    }
+    .compound-stat {
+      display: flex; flex-direction: column; gap: 0.2rem;
+    }
+    .compound-stat-val {
+      font-family: 'Fraunces', serif; font-size: 1.6rem;
+      color: var(--accent); line-height: 1;
+    }
+    .compound-stat-label {
+      font-family: 'DM Mono', monospace; font-size: 0.6rem;
+      color: var(--muted); letter-spacing: 0.08em;
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 3 — PROGRESSIVE SUMMARIZATION
+    ════════════════════════════════════ */
+    .prog-sum-panels {
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+
+    .prog-sum-layer {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden;
+      transition: border-color 0.3s;
+    }
+    .prog-sum-layer.active { border-color: var(--layer-c); }
+
+    .prog-sum-layer-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .prog-sum-layer-label {
+      font-family: 'DM Mono', monospace; font-size: 0.65rem;
+      color: var(--layer-c); letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .prog-sum-layer-tokens {
+      font-family: 'DM Mono', monospace; font-size: 0.6rem;
+      color: var(--muted);
+    }
+
+    .prog-sum-layer-body {
+      padding: 0.85rem 1rem;
+      font-size: 0.88rem; color: var(--body); line-height: 1.75;
+      font-style: italic; min-height: 40px;
+    }
+
+    .prog-sum-input-wrap {
+      margin-bottom: 1rem;
+    }
+    .prog-sum-textarea {
+      width: 100%; background: var(--surface-2); border: 1px solid var(--border-bright);
+      border-radius: 8px; padding: 0.85rem 1rem;
+      font-family: 'DM Mono', monospace; font-size: 0.76rem;
+      color: var(--body); line-height: 1.7; resize: vertical;
+      min-height: 100px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .prog-sum-textarea:focus { border-color: var(--accent); }
+
+    .compression-ratio {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--accent-2); margin-top: 0.75rem; letter-spacing: 0.06em;
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 4 — IDEA COLLISION
+    ════════════════════════════════════ */
+    .collision-domains {
+      display: grid; grid-template-columns: 1fr auto 1fr; gap: 1rem;
+      align-items: start; margin-bottom: 1.25rem;
+    }
+    @media (max-width: 540px) {
+      .collision-domains { grid-template-columns: 1fr; }
+      .collision-spark { display: none; }
+    }
+
+    .collision-domain-group {
+      display: flex; flex-direction: column; gap: 0.5rem;
+    }
+    .collision-domain-label {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--muted); letter-spacing: 0.08em; margin-bottom: 0.35rem;
+    }
+    .collision-domain-btn {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      padding: 0.45rem 0.85rem; border-radius: 6px;
+      border: 1px solid var(--border-bright); background: var(--surface-2);
+      color: var(--muted); cursor: pointer; transition: all 0.2s;
+      text-align: left; letter-spacing: 0.04em;
+    }
+    .collision-domain-btn.selected {
+      border-color: var(--accent); color: var(--accent); background: var(--accent-dim);
+    }
+
+    .collision-spark {
+      font-size: 1.5rem; text-align: center; padding-top: 1.8rem;
+      color: var(--accent); animation: pulse 2s ease-in-out infinite;
+    }
+
+    .collision-output {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.1rem 1.25rem;
+      font-size: 0.92rem; color: var(--body); line-height: 1.8;
+      min-height: 80px;
+    }
+    .collision-output .spark-idea { color: var(--headline); font-weight: 500; }
+    .collision-output .placeholder { color: var(--muted); font-style: italic; }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 5 — KNOWLEDGE LAYER STACK
+    ════════════════════════════════════ */
+    .klayer-block {
+      border-radius: 8px; padding: 1rem 1.25rem;
+      border: 1px solid var(--border); background: var(--surface-2);
+      cursor: pointer; margin-bottom: 0.5rem;
+      transition: all 0.3s; opacity: 0.4;
+    }
+    .klayer-block.active {
+      opacity: 1;
+      border-color: var(--kc);
+      background: color-mix(in srgb, var(--kc) 7%, var(--surface-2));
+      box-shadow: 0 0 20px color-mix(in srgb, var(--kc) 12%, transparent);
+    }
+    .klayer-header {
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .klayer-icon { font-size: 1.1rem; width: 28px; text-align: center; }
+    .klayer-name {
+      font-family: 'Fraunces', serif; font-size: 1rem;
+      color: var(--headline); font-weight: 400; flex: 1;
+    }
+    .klayer-tag {
+      font-family: 'DM Mono', monospace; font-size: 0.58rem;
+      color: var(--kc); letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .klayer-detail {
+      font-size: 0.87rem; color: var(--body); line-height: 1.7;
+      max-height: 0; overflow: hidden; transition: max-height 0.4s ease;
+      margin-top: 0;
+    }
+    .klayer-block.active .klayer-detail {
+      max-height: 120px; margin-top: 0.65rem;
+    }
+    .klayer-tip {
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      padding: 0.4rem 0.7rem; border-radius: 4px; margin-top: 0.5rem;
+      color: var(--kc);
+      background: color-mix(in srgb, var(--kc) 10%, transparent);
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 6 — CONCEPT CARD BROWSER
+    ════════════════════════════════════ */
+    .concept-cards-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 1rem; margin-top: 1.25rem;
+    }
+    .concept-card {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1.1rem 1.25rem;
+      transition: border-color 0.3s, transform 0.3s;
+      position: relative; overflow: hidden;
+    }
+    .concept-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .concept-card.hidden { display: none; }
+    .cc-category {
+      font-family: 'DM Mono', monospace; font-size: 0.58rem;
+      letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.4rem;
+    }
+    .cc-title {
+      font-family: 'Fraunces', serif; font-size: 0.98rem;
+      color: var(--headline); font-weight: 400; margin-bottom: 0.4rem;
+    }
+    .cc-model {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--accent); letter-spacing: 0.04em; margin-bottom: 0.5rem;
+    }
+    .cc-solution { font-size: 0.82rem; color: var(--body); line-height: 1.65; }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 7 — BRAIN HEALTH DASHBOARD
+    ════════════════════════════════════ */
+    .brain-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    }
+    @media (max-width:520px) { .brain-grid { grid-template-columns: 1fr; } }
+
+    .brain-card {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.1rem;
+    }
+    .brain-card-title {
+      font-family: 'DM Mono', monospace; font-size: 0.63rem;
+      color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+    .brain-check {
+      display: flex; align-items: center; gap: 0.6rem;
+      margin-bottom: 0.45rem; cursor: pointer;
+    }
+    .brain-check input { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
+    .brain-check-label {
+      font-family: 'DM Mono', monospace; font-size: 0.67rem;
+      color: var(--body); letter-spacing: 0.03em;
+    }
+
+    .brain-score-big {
+      font-family: 'Fraunces', serif; font-size: 3.5rem;
+      line-height: 1; font-weight: 300; transition: color 0.4s;
+    }
+    .brain-score-label {
+      font-family: 'DM Mono', monospace; font-size: 0.6rem;
+      color: var(--muted); letter-spacing: 0.08em; margin-top: 0.3rem;
+    }
+
+    .brain-meter-row {
+      display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.55rem;
+    }
+    .brain-meter-label {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--muted); width: 80px; flex-shrink: 0;
+    }
+    .brain-meter-bar {
+      flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden;
+    }
+    .brain-meter-fill {
+      height: 100%; border-radius: 3px;
+      transition: width 0.8s cubic-bezier(0.22,1,0.36,1);
+    }
+    .brain-meter-pct {
+      font-family: 'DM Mono', monospace; font-size: 0.6rem;
+      color: var(--muted); width: 30px; text-align: right;
+    }
+
+    .brain-verdict {
+      grid-column: 1 / -1; padding: 0.85rem 1.1rem;
+      border-radius: 8px; border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap; transition: all 0.4s;
+    }
+    .brain-verdict-label {
+      font-family: 'DM Mono', monospace; font-size: 0.63rem;
+      color: var(--muted); letter-spacing: 0.08em;
+    }
+    .brain-verdict-text {
+      font-family: 'Fraunces', serif; font-size: 1.05rem;
+      font-style: italic; color: var(--headline); transition: color 0.4s;
+    }
+
+    /* ════════════════════════════════════
+       INTERACTIVE 8 — DECISION JOURNAL
+    ════════════════════════════════════ */
+    .decision-form {
+      display: flex; flex-direction: column; gap: 0.85rem;
+    }
+    .decision-field-label {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--muted); letter-spacing: 0.09em; margin-bottom: 0.35rem;
+    }
+    .decision-input, .decision-textarea {
+      width: 100%; background: var(--surface-2); border: 1px solid var(--border-bright);
+      border-radius: 6px; padding: 0.55rem 0.85rem;
+      font-family: 'DM Mono', monospace; font-size: 0.76rem;
+      color: var(--headline); outline: none; transition: border-color 0.2s;
+    }
+    .decision-input:focus, .decision-textarea:focus { border-color: var(--accent); }
+    .decision-input::placeholder, .decision-textarea::placeholder { color: var(--muted); }
+    .decision-textarea { resize: vertical; min-height: 60px; }
+
+    .decision-output {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.1rem 1.25rem;
+      font-family: 'DM Mono', monospace; font-size: 0.74rem;
+      line-height: 1.85; color: var(--body); display: none;
+      white-space: pre-wrap;
+    }
+    .decision-output .key { color: var(--accent); }
+    .decision-output .val { color: var(--headline); }
+    .decision-output .section { color: var(--accent-2); font-weight: 500; }
+
+    footer {
+      margin-top: 5rem; padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      font-family: 'DM Mono', monospace; font-size: 0.68rem;
+      color: var(--muted); letter-spacing: 0.06em;
+      display: flex; justify-content: space-between;
+    }
+
+    @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse { 0%,100%{opacity:0.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.15)} }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1; transform: none; transition: none; }
+      * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+<div id="cursor-glow"></div>
+
+<div class="wrapper">
+
+  <a href="../index.html" class="back-link">← BACK TO ARCHITECT</a>
+
+  <header class="essay-header">
+    <div class="eyebrow">// KNOWLEDGE SYSTEMS</div>
+    <h1 class="essay-title">AI Second Brain<br><em>From Digital Archive to Knowledge OS</em></h1>
+    <div class="subtitle">Why the goal is no longer to remember more — it's to think better with everything you've already learned</div>
+    <div class="meta">
+      <span class="meta-pill">PRACTICAL + FRAMEWORKS</span>
+      JUNE 2026 &nbsp;·&nbsp; 9 MIN READ &nbsp;·&nbsp; 8 INTERACTIVE TOOLS
+    </div>
+  </header>
+
+  <div class="reveal" style="margin-top:2.5rem;">
+    <p class="lede">
+      The biggest misconception about Personal Knowledge Management is that it's about taking better notes. In the AI era, the goal is no longer to build a library of information — it's to build a thinking system. AI shifts the bottleneck from remembering information to organising, retrieving, and applying it at the right moment.
+    </p>
+  </div>
+
+  <div class="essay-body reveal" style="margin-top:1.75rem;">
+    <p>
+      A traditional second brain is a filing cabinet with good search. An AI-powered knowledge operating system is something fundamentally different: it retrieves, connects, synthesises, and applies your accumulated experience — continuously, conversationally, and without the friction of manual curation. <strong>The highest leverage comes not from storing more, but from making your existing knowledge instantly actionable whenever you need it.</strong>
+    </p>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · The Core Shift</div>
+    <p>
+      Think of the difference between a library and a research assistant. A library stores everything. A research assistant walks in, understands your current project, pulls the three most relevant sources from ten years of your reading, connects them to a conversation you had last month, and hands you a synthesis you could act on today. <em>Traditional PKM builds the library. AI-powered PKM builds the research assistant.</em> They look similar from the outside. The difference is everything.
+    </p>
+  </div>
+
+  <div class="pullquote reveal">
+    <p>"Traditional PKM asked: how do I remember more? Modern AI PKM asks: how do I think better with everything I've already learned?"</p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 1 — CAPTURE FLYWHEEL
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>The CAPTURE Flywheel — Seven Stages of a Living Knowledge System</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      The CAPTURE framework describes the full lifecycle of a knowledge operating system. Unlike a linear process, it's a flywheel — each cycle makes the system smarter and more useful than the last. Click each stage to explore what it means in practice.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="flywheel-widget">
+    <div class="widget-header">
+      <div class="widget-label">CAPTURE Flywheel Visualizer</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">CLICK ANY STAGE TO EXPAND</div>
+    </div>
+    <div class="widget-body">
+      <div class="flywheel-wrap">
+        <div class="flywheel-svg-wrap">
+          <svg id="flywheel-svg" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+        <div class="flywheel-steps" id="flywheel-steps"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · The Flywheel</div>
+    <p>
+      A flywheel is hard to start and nearly impossible to stop. The first push takes enormous effort. But each rotation adds momentum until the wheel spins on its own energy. <em>A well-built knowledge system works the same way.</em> The first months feel like work — capturing, linking, compressing. Then one day you ask a question and the system hands you an answer built from five years of your own thinking. That's the flywheel paying compound interest.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 2 — KNOWLEDGE COMPOUNDING
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Knowledge Compounding — Ideas as Compound Interest</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Ideas become exponentially more valuable when connected. A single insight is a data point. Ten connected insights are a pattern. A hundred connected insights are a model that generates new insights automatically. <strong>Link every new idea to at least one existing note or project.</strong> The compounding effect is not metaphorical — it is mathematically real. Adjust the sliders to see how your knowledge value grows over time.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="compound-widget">
+    <div class="widget-header">
+      <div class="widget-label">Knowledge Compounding Calculator</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">INTEREST FOR IDEAS</div>
+    </div>
+    <div class="widget-body">
+      <div class="compound-controls">
+        <div class="compound-ctrl">
+          <div class="compound-ctrl-label">NOTES ADDED / WEEK</div>
+          <input type="range" id="notes-per-week" min="1" max="20" value="5">
+          <div class="compound-ctrl-val" id="notes-val">5 notes</div>
+        </div>
+        <div class="compound-ctrl">
+          <div class="compound-ctrl-label">AVG CONNECTIONS PER NOTE</div>
+          <input type="range" id="connections" min="0" max="5" value="2" step="0.5">
+          <div class="compound-ctrl-val" id="conn-val">2 links</div>
+        </div>
+        <div class="compound-ctrl">
+          <div class="compound-ctrl-label">TIME HORIZON</div>
+          <input type="range" id="years" min="1" max="5" value="2">
+          <div class="compound-ctrl-val" id="years-val">2 years</div>
+        </div>
+      </div>
+      <svg id="compound-svg" viewBox="0 0 680 200" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="compound-stats">
+        <div class="compound-stat">
+          <div class="compound-stat-val" id="total-notes">520</div>
+          <div class="compound-stat-label">TOTAL NOTES</div>
+        </div>
+        <div class="compound-stat">
+          <div class="compound-stat-val" id="total-connections">1,040</div>
+          <div class="compound-stat-label">KNOWLEDGE CONNECTIONS</div>
+        </div>
+        <div class="compound-stat">
+          <div class="compound-stat-val" id="value-mult" style="color:var(--accent-2)">5.2×</div>
+          <div class="compound-stat-label">VALUE MULTIPLIER</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 3 — PROGRESSIVE SUMMARIZATION
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Progressive Summarization — The Zoom Lens Principle</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Long notes become unreadable over time. The solution is progressive summarization: a zoom lens that creates three layers of the same knowledge — a one-sentence essence, a one-paragraph overview, and the full note. You zoom in or out depending on what the moment requires. Paste any text below and click Compress to see all three layers generated.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="progsym-widget">
+    <div class="widget-header">
+      <div class="widget-label">Progressive Summarization Builder</div>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="run-btn" id="compress-btn">⟳ Compress</button>
+      </div>
+    </div>
+    <div class="widget-body">
+      <div class="prog-sum-input-wrap">
+        <div class="decision-field-label">PASTE YOUR RAW NOTE / ARTICLE EXCERPT</div>
+        <textarea class="prog-sum-textarea" id="prog-input" placeholder="Paste any text here — an article excerpt, meeting notes, book passage, or idea dump. The three-layer compression will run automatically when you click Compress…"></textarea>
+      </div>
+      <div class="prog-sum-panels" id="prog-panels">
+        <div class="prog-sum-layer" style="--layer-c:var(--accent)">
+          <div class="prog-sum-layer-header">
+            <div class="prog-sum-layer-label">Layer 1 — One Sentence (Headline)</div>
+            <div class="prog-sum-layer-tokens" id="l1-tokens">—</div>
+          </div>
+          <div class="prog-sum-layer-body" id="l1-body" style="color:var(--muted);">Compress text to generate…</div>
+        </div>
+        <div class="prog-sum-layer" style="--layer-c:var(--accent-2)">
+          <div class="prog-sum-layer-header">
+            <div class="prog-sum-layer-label">Layer 2 — One Paragraph (Gist)</div>
+            <div class="prog-sum-layer-tokens" id="l2-tokens">—</div>
+          </div>
+          <div class="prog-sum-layer-body" id="l2-body" style="color:var(--muted);">Compress text to generate…</div>
+        </div>
+        <div class="prog-sum-layer" style="--layer-c:var(--accent-3)">
+          <div class="prog-sum-layer-header">
+            <div class="prog-sum-layer-label">Layer 3 — Full Distilled Note</div>
+            <div class="prog-sum-layer-tokens" id="l3-tokens">—</div>
+          </div>
+          <div class="prog-sum-layer-body" id="l3-body" style="color:var(--muted);">Compress text to generate…</div>
+        </div>
+      </div>
+      <div class="compression-ratio" id="compression-ratio" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div class="analogy-card reveal">
+    <div class="analogy-tag">Analogy · Progressive Summarization</div>
+    <p>
+      A zoom lens on a camera doesn't discard the scene when you zoom out — it compresses it. Zoom in, and the full detail returns. <em>Progressive summarization works the same way: every layer is a different focal length on the same knowledge.</em> The one-sentence layer is what you read at 3am when you need an answer fast. The full note is what you open when you have forty minutes and a blank document.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 4 — IDEA COLLISION
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Idea Collision — Intellectual Cross-Pollination</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Innovation often comes from combining unrelated concepts. Most knowledge systems are built around domains — design notes here, strategy notes there, psychology books in a separate folder. The AI-powered second brain collapses those walls. <strong>Regularly ask AI to connect notes from different domains.</strong> The collisions it finds are often the most valuable ideas in your system.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="collision-widget">
+    <div class="widget-header">
+      <div class="widget-label">Idea Collision Generator</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">SELECT TWO DOMAINS → COLLIDE</div>
+    </div>
+    <div class="widget-body">
+      <div class="collision-domains">
+        <div class="collision-domain-group" id="domain-a-group">
+          <div class="collision-domain-label">DOMAIN A</div>
+        </div>
+        <div class="collision-spark">⚡</div>
+        <div class="collision-domain-group" id="domain-b-group">
+          <div class="collision-domain-label">DOMAIN B</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;">
+        <button class="run-btn" id="collide-btn">⚡ Collide Ideas</button>
+        <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);" id="collision-status">Select one domain from each column</span>
+      </div>
+      <div class="collision-output" id="collision-output">
+        <span class="placeholder">Select two domains and click Collide to generate a cross-domain insight…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 5 — KNOWLEDGE LAYERS
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>The Five Layers of an AI Second Brain</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Most people focus on the Capture layer and stop there. A knowledge operating system has five distinct layers, each building on the one before. Missing any layer creates a bottleneck that prevents the whole system from functioning. Click each layer to understand what it requires and how AI changes the equation.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="klayer-widget">
+    <div class="widget-header">
+      <div class="widget-label">Knowledge Layer Stack</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">CLICK TO EXPAND EACH LAYER</div>
+    </div>
+    <div class="widget-body" style="padding:1rem;" id="klayer-body"></div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 6 — CONCEPT CARDS
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>15 High-Leverage PKM Concepts</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      These are the least understood — and highest leverage — concepts in AI-powered knowledge management. Each comes with a memorable mental model designed to make the principle stick long after you've left this page. Filter by category to focus on what matters most to your system right now.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="pkm-concept-widget">
+    <div class="widget-header">
+      <div class="widget-label">PKM Concept Browser</div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;" id="pkm-filter-row">
+        <button class="pill-btn active" data-filter="all">All (15)</button>
+        <button class="pill-btn" data-filter="capture">Capture</button>
+        <button class="pill-btn" data-filter="memory">Memory</button>
+        <button class="pill-btn" data-filter="retrieval">Retrieval</button>
+        <button class="pill-btn" data-filter="apply">Apply</button>
+      </div>
+    </div>
+    <div class="widget-body">
+      <div class="concept-cards-grid" id="pkm-cards-grid"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 7 — BRAIN HEALTH DASHBOARD
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Second Brain Health Monitor — Audit Your System</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      Most knowledge systems have the same few structural weaknesses: no retrieval design, no compression habit, no review cadence. Check off what your system currently does, and the monitor will score your second brain's health and surface the highest-leverage gap.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="brain-widget">
+    <div class="widget-header">
+      <div class="widget-label">Second Brain Health Monitor</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">CHECK WHAT YOUR SYSTEM CURRENTLY DOES</div>
+    </div>
+    <div class="widget-body">
+      <div class="brain-grid" id="brain-grid">
+        <div class="brain-card">
+          <div class="brain-card-title">System Capabilities</div>
+          <div id="brain-checks"></div>
+        </div>
+        <div class="brain-card" style="display:flex;flex-direction:column;gap:1rem;">
+          <div>
+            <div class="brain-card-title">Health Score</div>
+            <div class="brain-score-big" id="brain-score-big" style="color:var(--bad);">0</div>
+            <div class="brain-score-label">OUT OF 100</div>
+          </div>
+          <div>
+            <div class="brain-card-title" style="margin-bottom:0.5rem;">Dimension Health</div>
+            <div id="brain-meters"></div>
+          </div>
+        </div>
+        <div class="brain-verdict" id="brain-verdict">
+          <div class="brain-verdict-label">DIAGNOSIS</div>
+          <div class="brain-verdict-text" id="brain-verdict-text">Check capabilities above to see your diagnosis</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       INTERACTIVE 8 — DECISION JOURNAL
+  ══════════════════════════════ -->
+  <div class="section-label reveal"><span>Decision Journal Builder — Never Forget Why You Decided</span></div>
+
+  <div class="essay-body reveal">
+    <p>
+      We forget why we made past decisions. Months later, we second-guess choices we made with good reasoning, or repeat mistakes we've already solved. A <strong>Decision Journal</strong> records the reasoning, alternatives considered, and tradeoffs behind every major choice — giving your future self the full context your past self had. Fill in any decision below and generate a structured journal entry.
+    </p>
+  </div>
+
+  <div class="widget reveal" id="decision-widget">
+    <div class="widget-header">
+      <div class="widget-label">Decision Journal Builder</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--muted);">RECORD THE REASONING, NOT JUST THE OUTCOME</div>
+    </div>
+    <div class="widget-body">
+      <div class="decision-form" id="decision-form">
+        <div>
+          <div class="decision-field-label">THE DECISION</div>
+          <input class="decision-input" id="dj-decision" placeholder="e.g. Switch from React to Next.js for the new project">
+        </div>
+        <div>
+          <div class="decision-field-label">CONTEXT — What situation led to this?</div>
+          <textarea class="decision-textarea" id="dj-context" placeholder="e.g. Our current setup has no SSR, SEO is suffering, and the team wants better DX…"></textarea>
+        </div>
+        <div>
+          <div class="decision-field-label">ALTERNATIVES CONSIDERED</div>
+          <input class="decision-input" id="dj-alts" placeholder="e.g. Remix, Astro, stay with CRA">
+        </div>
+        <div>
+          <div class="decision-field-label">KEY TRADEOFFS</div>
+          <textarea class="decision-textarea" id="dj-tradeoffs" placeholder="e.g. Migration cost ~2 weeks, but long-term DX and SEO benefits outweigh it…"></textarea>
+        </div>
+        <div>
+          <div class="decision-field-label">CONFIDENCE LEVEL (1–10)</div>
+          <input class="decision-input" id="dj-confidence" type="number" min="1" max="10" placeholder="7">
+        </div>
+        <div>
+          <div class="decision-field-label">REVIEW DATE — When to revisit this decision</div>
+          <input class="decision-input" id="dj-review" type="text" placeholder="e.g. 3 months from now / 2026-09-01">
+        </div>
+        <button class="run-btn" id="dj-generate-btn" style="align-self:flex-start;">⟳ Generate Entry</button>
+      </div>
+      <div class="decision-output" id="dj-output"></div>
+    </div>
+  </div>
+
+  <!-- CLOSING -->
+  <div class="reveal" style="margin-top:4rem;padding-top:2.5rem;border-top:1px solid var(--border);">
+    <div class="section-label" style="margin-top:0;"><span>The Final Measure</span></div>
+    <div class="essay-body">
+      <p>
+        The final measure of a knowledge system is not how much it stores, but <strong>how often it changes your actions.</strong> Information that never changes behaviour is archived potential. The most powerful second brain is not the one with the most notes — it's the one whose insights show up at exactly the right moment, in exactly the right context, to make the next decision better than the last.
+      </p>
+      <p>
+        Building that system takes time. But it compounds. And unlike financial interest, knowledge compounds with no upper limit, no market risk, and no tax on the returns.
+      </p>
+    </div>
+    <div class="analogy-card">
+      <div class="analogy-tag">Final Analogy · The Knowledge OS</div>
+      <p>
+        An operating system doesn't just store files. It allocates resources, manages processes, handles requests from multiple programs simultaneously, and gets more capable as you install new software. <em>A knowledge operating system does the same for your thinking:</em> it allocates attention, connects running projects, handles queries from wherever you are in your work, and gets smarter with every note you add. The goal was never to build a better filing cabinet. The goal was always to build a better mind.
+      </p>
+    </div>
+  </div>
+
+  <footer>
+    <span>// KNOWLEDGE SYSTEMS</span>
+    <span>JUNE 2026</span>
+  </footer>
+</div>
+
+<script>
+// ── PROGRESS + CURSOR ──
+const bar = document.getElementById('progress-bar');
+window.addEventListener('scroll', () => {
+  const d = document.documentElement;
+  bar.style.width = Math.min(100,(d.scrollTop/(d.scrollHeight-d.clientHeight))*100)+'%';
+});
+const glow = document.getElementById('cursor-glow');
+document.addEventListener('mousemove', e => { glow.style.left=e.clientX+'px'; glow.style.top=e.clientY+'px'; });
+
+// ── SCROLL REVEAL ──
+const reveals = document.querySelectorAll('.reveal');
+const ro = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('visible'); ro.unobserve(e.target); }});
+}, { threshold:0.08, rootMargin:'0px 0px -30px 0px' });
+reveals.forEach(el => ro.observe(el));
+
+// ════════════════════════════════════
+// INTERACTIVE 1 — CAPTURE FLYWHEEL
+// ════════════════════════════════════
+const captureSteps = [
+  { letter:'C', name:'Collect Selectively', color:'#e8a33a', detail:'Save only high-value information: surprising, useful, reusable, actionable, or hard to rediscover. Quality over quantity. Every piece of noise you capture costs future retrieval time.' },
+  { letter:'A', name:'Associate', color:'#2dd4a0', detail:'Link new ideas to at least one existing note or project. AI excels at finding connections across years of notes. Ask: what does this contradict? Reinforce? Where else could it apply?' },
+  { letter:'P', name:'Process', color:'#7c8ef7', detail:'Summarise and extract principles. Reduce complexity into heuristics, checklists, templates, and mental models. Raw notes are ore; processed notes are steel.' },
+  { letter:'T', name:'Transform', color:'#f472b6', detail:'Turn notes into templates, prompts, SOPs, and playbooks. This converts captured knowledge into reusable infrastructure that multiplies future effort.' },
+  { letter:'U', name:'Use', color:'#2dd4a0', detail:'Apply knowledge in real work. The final measure is not how much you store, but how often it changes your actions. Knowledge that isn\'t applied is archived potential.' },
+  { letter:'R', name:'Review', color:'#e8a33a', detail:'Refresh, refine, and update important ideas on a recurring schedule. Outdated notes can be worse than no notes — they generate false confidence.' },
+  { letter:'E', name:'Expand', color:'#7c8ef7', detail:'Let AI discover new connections and opportunities across your entire knowledge base. Each cycle reveals patterns you couldn\'t see when you were adding notes one by one.' },
+];
+
+const flywheelSVG = document.getElementById('flywheel-svg');
+const flywheelSteps = document.getElementById('flywheel-steps');
+let activeFlywheelStep = -1;
+
+// Draw flywheel arcs
+const cx = 130, cy = 130, r = 100;
+captureSteps.forEach((step, i) => {
+  const startAngle = (i / 7) * Math.PI * 2 - Math.PI / 2;
+  const endAngle = ((i + 1) / 7) * Math.PI * 2 - Math.PI / 2;
+  const gap = 0.04;
+  const sa = startAngle + gap, ea = endAngle - gap;
+  const x1 = cx + r * Math.cos(sa), y1 = cy + r * Math.sin(sa);
+  const x2 = cx + r * Math.cos(ea), y2 = cy + r * Math.sin(ea);
+  const ir = 60;
+  const x3 = cx + ir * Math.cos(ea), y3 = cy + ir * Math.sin(ea);
+  const x4 = cx + ir * Math.cos(sa), y4 = cy + ir * Math.sin(sa);
+  const mid = (sa + ea) / 2;
+  const lx = cx + 82 * Math.cos(mid), ly = cy + 82 * Math.sin(mid);
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d', `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${ir} ${ir} 0 0 0 ${x4} ${y4} Z`);
+  path.setAttribute('fill', `color-mix(in srgb, ${step.color} 12%, #0d0f14)`);
+  path.setAttribute('stroke', step.color);
+  path.setAttribute('stroke-width', '1');
+  path.setAttribute('data-step', i);
+  path.style.cursor = 'pointer';
+  path.style.transition = 'all 0.3s';
+  path.addEventListener('click', () => toggleFlywheelStep(i));
+  flywheelSVG.appendChild(path);
+
+  const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+  text.setAttribute('x', lx); text.setAttribute('y', ly);
+  text.setAttribute('text-anchor','middle'); text.setAttribute('dominant-baseline','middle');
+  text.setAttribute('fill', step.color); text.setAttribute('font-size','11');
+  text.setAttribute('font-family','Fraunces, serif'); text.setAttribute('font-weight','700');
+  text.textContent = step.letter;
+  text.style.pointerEvents = 'none';
+  flywheelSVG.appendChild(text);
+});
+
+// Center label
+const centerLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
+centerLabel.setAttribute('x', cx); centerLabel.setAttribute('y', cy);
+centerLabel.setAttribute('text-anchor','middle'); centerLabel.setAttribute('dominant-baseline','middle');
+centerLabel.setAttribute('fill','#484640'); centerLabel.setAttribute('font-size','8');
+centerLabel.setAttribute('font-family','DM Mono, monospace');
+centerLabel.textContent = 'FLYWHEEL';
+flywheelSVG.appendChild(centerLabel);
+
+captureSteps.forEach((step, i) => {
+  const div = document.createElement('div');
+  div.className = 'flywheel-step';
+  div.style.setProperty('--step-color', step.color);
+  div.setAttribute('data-step', i);
+  div.innerHTML = `
+    <div class="flywheel-step-header">
+      <div class="flywheel-letter">${step.letter}</div>
+      <div class="flywheel-step-name">${step.name}</div>
+    </div>
+    <div class="flywheel-step-detail">${step.detail}</div>`;
+  div.addEventListener('click', () => toggleFlywheelStep(i));
+  flywheelSteps.appendChild(div);
+});
+
+function toggleFlywheelStep(i) {
+  if (activeFlywheelStep === i) {
+    document.querySelectorAll('.flywheel-step, [data-step]').forEach(el => el.classList.remove('active'));
+    activeFlywheelStep = -1;
+  } else {
+    document.querySelectorAll('.flywheel-step').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('#flywheel-svg path').forEach(el => {
+      el.setAttribute('fill', `color-mix(in srgb, ${captureSteps[el.getAttribute('data-step')]?.color||'#888'} 12%, #0d0f14)`);
+    });
+    document.querySelectorAll(`.flywheel-step[data-step="${i}"]`).forEach(el => el.classList.add('active'));
+    const paths = document.querySelectorAll('#flywheel-svg path');
+    paths.forEach(p => {
+      const si = parseInt(p.getAttribute('data-step'));
+      if (si === i) {
+        p.setAttribute('fill', `color-mix(in srgb, ${captureSteps[i].color} 28%, #0d0f14)`);
+      }
+    });
+    activeFlywheelStep = i;
+  }
+}
+
+// ════════════════════════════════════
+// INTERACTIVE 2 — KNOWLEDGE COMPOUNDING
+// ════════════════════════════════════
+const npwSlider = document.getElementById('notes-per-week');
+const connSlider = document.getElementById('connections');
+const yearsSlider = document.getElementById('years');
+
+function updateCompound() {
+  const npw = parseFloat(npwSlider.value);
+  const conn = parseFloat(connSlider.value);
+  const yrs = parseFloat(yearsSlider.value);
+  document.getElementById('notes-val').textContent = npw + ' notes';
+  document.getElementById('conn-val').textContent = conn + ' links';
+  document.getElementById('years-val').textContent = yrs + (yrs === 1 ? ' year' : ' years');
+
+  const weeks = yrs * 52;
+  const totalNotes = Math.round(npw * weeks);
+  const totalConn = Math.round(totalNotes * conn);
+  const valueMult = (1 + conn * 0.12) ** (totalNotes / 100);
+
+  document.getElementById('total-notes').textContent = totalNotes.toLocaleString();
+  document.getElementById('total-connections').textContent = totalConn.toLocaleString();
+  document.getElementById('value-mult').textContent = valueMult.toFixed(1) + '×';
+
+  // Draw chart
+  const svg = document.getElementById('compound-svg');
+  svg.innerHTML = '';
+  const W = 680, H = 200, pad = { l:50, r:30, t:20, b:40 };
+  const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b;
+
+  // Axes
+  const axis = (x1,y1,x2,y2) => {
+    const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',x1); l.setAttribute('y1',y1);
+    l.setAttribute('x2',x2); l.setAttribute('y2',y2);
+    l.setAttribute('stroke','#1c1f28'); l.setAttribute('stroke-width','1');
+    svg.appendChild(l);
+  };
+  axis(pad.l, pad.t, pad.l, pad.t+cH);
+  axis(pad.l, pad.t+cH, pad.l+cW, pad.t+cH);
+
+  const makeT = (x,y,txt,fill,size,anchor) => {
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',x); t.setAttribute('y',y);
+    t.setAttribute('fill',fill||'#484640'); t.setAttribute('font-size',size||'8.5');
+    t.setAttribute('font-family','DM Mono, monospace');
+    t.setAttribute('text-anchor',anchor||'middle');
+    t.textContent = txt; svg.appendChild(t); return t;
+  };
+  makeT(pad.l+cW/2, H-4, 'TIME (weeks) →', '#484640', '8', 'middle');
+  const yt = makeT(11, pad.t+cH/2, 'KNOWLEDGE VALUE →', '#484640', '8', 'middle');
+  yt.setAttribute('transform', `rotate(-90, 11, ${pad.t+cH/2})`);
+
+  // Isolated notes (linear)
+  const isolPts = [], connPts = [];
+  const steps = 40;
+  for (let s = 0; s <= steps; s++) {
+    const t = s / steps;
+    const w = t * weeks;
+    const n = npw * w;
+    const isolVal = n;
+    const connVal = n * (1 + conn * 0.12) ** (n / 100);
+    const maxV = npw * weeks * valueMult * 1.05;
+    isolPts.push(`${pad.l + t*cW},${pad.t + cH - (isolVal/maxV)*cH}`);
+    connPts.push(`${pad.l + t*cW},${pad.t + cH - Math.min(1, connVal/maxV)*cH}`);
+  }
+
+  const makeLine = (pts, color, dash) => {
+    const pl = document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    pl.setAttribute('points', pts.join(' '));
+    pl.setAttribute('fill','none'); pl.setAttribute('stroke', color);
+    pl.setAttribute('stroke-width','2');
+    if(dash) pl.setAttribute('stroke-dasharray','4,3');
+    svg.appendChild(pl);
+  };
+
+  makeLine(isolPts, '#484640', true);
+  makeLine(connPts, '#e8a33a', false);
+
+  makeT(pad.l+cW*0.7, pad.t+15, '← CONNECTED (compounding)', '#e8a33a', '7.5', 'middle');
+  makeT(pad.l+cW*0.6, pad.t+cH*0.78, 'ISOLATED (linear) →', '#484640', '7.5', 'middle');
+}
+
+[npwSlider, connSlider, yearsSlider].forEach(s => s.addEventListener('input', updateCompound));
+updateCompound();
+
+// ════════════════════════════════════
+// INTERACTIVE 3 — PROGRESSIVE SUMMARIZATION (AI-powered)
+// ════════════════════════════════════
+document.getElementById('compress-btn').addEventListener('click', async () => {
+  const text = document.getElementById('prog-input').value.trim();
+  if (!text) {
+    document.getElementById('l1-body').textContent = 'Please paste some text above first.';
+    document.getElementById('l1-body').style.color = 'var(--bad)';
+    return;
+  }
+  const btn = document.getElementById('compress-btn');
+  btn.disabled = true; btn.textContent = '⟳ Compressing…';
+
+  const setLayer = (id, tokenId, content, tokens) => {
+    const el = document.getElementById(id);
+    el.textContent = content; el.style.color = 'var(--body)';
+    document.getElementById(tokenId).textContent = '~'+tokens+' tokens';
+    document.querySelector(`#${id}`).closest('.prog-sum-layer').classList.add('active');
+  };
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: `Progressive summarization of the following text. Return ONLY a JSON object with these three keys, no preamble, no markdown:
+{"l1": "one sentence capturing the single most important idea",
+"l2": "one paragraph (3-4 sentences) covering the core insights",
+"l3": "a distilled note with key principles, bullet points, and one actionable takeaway"}
+
+TEXT:
+${text.slice(0, 2000)}`
+        }]
+      })
+    });
+    const data = await resp.json();
+    const raw = data.content.map(c => c.text||'').join('');
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+    const origWords = text.split(/\s+/).length;
+    setLayer('l1-body', 'l1-tokens', parsed.l1, Math.round(parsed.l1.split(/\s+/).length*1.3));
+    setLayer('l2-body', 'l2-tokens', parsed.l2, Math.round(parsed.l2.split(/\s+/).length*1.3));
+    setLayer('l3-body', 'l3-tokens', parsed.l3, Math.round(parsed.l3.split(/\s+/).length*1.3));
+    const ratio = Math.round((1 - parsed.l1.split(/\s+/).length/origWords)*100);
+    const ratioEl = document.getElementById('compression-ratio');
+    ratioEl.textContent = `// Layer 1 compresses your ${origWords}-word input by ~${ratio}% — retaining maximum signal`;
+    ratioEl.style.display = 'block';
+  } catch(e) {
+    document.getElementById('l1-body').textContent = 'Compression error — check API connection.';
+    document.getElementById('l1-body').style.color = 'var(--bad)';
+  }
+  btn.disabled = false; btn.textContent = '⟳ Compress';
+});
+
+// ════════════════════════════════════
+// INTERACTIVE 4 — IDEA COLLISION (AI-powered)
+// ════════════════════════════════════
+const domains = ['Behavioural Psychology','Systems Thinking','Game Design','Evolutionary Biology','Architecture','Jazz Improvisation','Military Strategy','Urban Planning','Thermodynamics','Cooking & Cuisine','Ancient Philosophy','Neuroscience','Supply Chain','Theatre & Storytelling','Cryptography'];
+
+let domainA = null, domainB = null;
+const groupA = document.getElementById('domain-a-group');
+const groupB = document.getElementById('domain-b-group');
+
+const half = Math.ceil(domains.length / 2);
+domains.slice(0, half).forEach(d => {
+  const btn = document.createElement('button');
+  btn.className = 'collision-domain-btn'; btn.textContent = d; btn.dataset.domain = d;
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#domain-a-group .collision-domain-btn').forEach(b=>b.classList.remove('selected'));
+    this.classList.add('selected'); domainA = d; updateCollisionStatus();
+  });
+  groupA.appendChild(btn);
+});
+domains.slice(half).forEach(d => {
+  const btn = document.createElement('button');
+  btn.className = 'collision-domain-btn'; btn.textContent = d; btn.dataset.domain = d;
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#domain-b-group .collision-domain-btn').forEach(b=>b.classList.remove('selected'));
+    this.classList.add('selected'); domainB = d; updateCollisionStatus();
+  });
+  groupB.appendChild(btn);
+});
+
+function updateCollisionStatus() {
+  const el = document.getElementById('collision-status');
+  if (domainA && domainB) el.textContent = `Ready: ${domainA} × ${domainB}`;
+  else el.textContent = 'Select one domain from each column';
+}
+
+document.getElementById('collide-btn').addEventListener('click', async () => {
+  if (!domainA || !domainB) return;
+  const btn = document.getElementById('collide-btn');
+  btn.disabled = true; btn.textContent = '⚡ Colliding…';
+  const out = document.getElementById('collision-output');
+  out.innerHTML = '<span class="placeholder">Generating cross-domain insight…</span>';
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 400,
+        messages: [{
+          role: 'user',
+          content: `You are a knowledge cross-pollinator. Generate one genuinely surprising and insightful idea collision between "${domainA}" and "${domainB}". 
+
+Return ONLY a JSON with these keys, no preamble:
+{"title": "a short punchy name for the combined concept", "insight": "2-3 sentences explaining the unexpected connection and why it's useful", "application": "one concrete way a knowledge worker could apply this hybrid idea today"}`
+        }]
+      })
+    });
+    const data = await resp.json();
+    const raw = data.content.map(c=>c.text||'').join('');
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+    out.innerHTML = `<div style="margin-bottom:0.6rem;font-family:'Fraunces',serif;font-size:1.05rem;color:var(--headline);">⚡ ${parsed.title}</div>
+<div style="margin-bottom:0.75rem;">${parsed.insight}</div>
+<div style="font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--accent-2);padding:0.5rem 0.75rem;background:rgba(45,212,160,0.06);border-radius:5px;border:1px solid rgba(45,212,160,0.2);">→ Apply today: ${parsed.application}</div>`;
+  } catch(e) {
+    out.innerHTML = '<span class="placeholder">Error generating collision — check connection.</span>';
+  }
+  btn.disabled = false; btn.textContent = '⚡ Collide Ideas';
+});
+
+// ════════════════════════════════════
+// INTERACTIVE 5 — KNOWLEDGE LAYER STACK
+// ════════════════════════════════════
+const klayers = [
+  { name:'Capture', icon:'📥', color:'#e8a33a', detail:'What is worth remembering? Capture only information that is surprising, useful, reusable, actionable, or difficult to rediscover. The hardest discipline in PKM is not capturing more — it is capturing less.', tip:'Rule: if it won\'t change a future decision, don\'t save it.' },
+  { name:'Connect', icon:'🔗', color:'#2dd4a0', detail:'How does this relate to what you already know? AI excels at finding patterns across years of notes. Ask: what does this contradict? Reinforce? Where else could it apply? What project could benefit?', tip:'AI can surface connections across 5 years of notes in seconds. Use it weekly.' },
+  { name:'Compress', icon:'💎', color:'#7c8ef7', detail:'What is the essence? Reduce complexity into principles, heuristics, checklists, templates, and mental models. Compression is what transforms a note from a record into a reusable asset.', tip:'Every note should have a one-sentence headline you could recall without re-reading.' },
+  { name:'Retrieve', icon:'🔍', color:'#f472b6', detail:'Can you find it in seconds? The best second brain minimises the time between question and answer. Instead of browsing folders, ask AI: "When have I solved something similar? What did I learn about pricing?"', tip:'Retrieval becomes conversational. Design your system for questions, not for folders.' },
+  { name:'Apply', icon:'⚡', color:'#e8a33a', detail:'Does this knowledge improve your work? The final measure of a knowledge system is not how much it stores, but how often it changes your actions. Knowledge that isn\'t applied is archived potential.', tip:'End every note with: "What should I do differently because of this?"' },
+];
+
+const klayerBody = document.getElementById('klayer-body');
+let activeKlayer = -1;
+
+klayers.forEach((layer, i) => {
+  const div = document.createElement('div');
+  div.className = 'klayer-block';
+  div.style.setProperty('--kc', layer.color);
+  div.innerHTML = `
+    <div class="klayer-header">
+      <div class="klayer-icon">${layer.icon}</div>
+      <div class="klayer-name">${layer.name}</div>
+      <div class="klayer-tag">LAYER ${i+1}</div>
+    </div>
+    <div class="klayer-detail">
+      ${layer.detail}
+      <div class="klayer-tip">→ ${layer.tip}</div>
+    </div>`;
+  div.addEventListener('click', () => {
+    if (activeKlayer === i) {
+      div.classList.remove('active'); activeKlayer = -1;
+    } else {
+      document.querySelectorAll('.klayer-block').forEach(b=>b.classList.remove('active'));
+      div.classList.add('active'); activeKlayer = i;
+    }
+  });
+  klayerBody.appendChild(div);
+});
+
+// ════════════════════════════════════
+// INTERACTIVE 6 — PKM CONCEPT CARDS
+// ════════════════════════════════════
+const pkmConcepts = [
+  { title:'Retrieval Over Storage', cat:'retrieval', catColor:'#7c8ef7', model:'A Library Without a Catalog', solution:'Design your system around search, summaries, and semantic connections rather than folders.' },
+  { title:'Knowledge Compounding', cat:'memory', catColor:'#e8a33a', model:'Interest for Ideas', solution:'Link every new insight to at least one existing note or project.' },
+  { title:'Progressive Summarization', cat:'capture', catColor:'#2dd4a0', model:'Zoom Lens', solution:'Create layered summaries: 1 sentence → 1 paragraph → full note.' },
+  { title:'Knowledge Distillation', cat:'capture', catColor:'#2dd4a0', model:'Ore Into Steel', solution:'Convert articles and books into principles, checklists, and frameworks.' },
+  { title:'Idea Collision', cat:'retrieval', catColor:'#7c8ef7', model:'Intellectual Cross-Pollination', solution:'Regularly ask AI to connect notes from different domains.' },
+  { title:'Knowledge Freshness', cat:'memory', catColor:'#e8a33a', model:'Living Garden', solution:'Review and update high-value notes on a recurring schedule.' },
+  { title:'Knowledge Decay', cat:'memory', catColor:'#e8a33a', model:'Use It or Lose It', solution:'Schedule AI-generated refreshers for important concepts.' },
+  { title:'Decision Memory', cat:'apply', catColor:'#f472b6', model:'Decision Journal', solution:'Record the reasoning, alternatives, and tradeoffs behind major choices.' },
+  { title:'Project Memory', cat:'apply', catColor:'#f472b6', model:'Black Box Recorder', solution:'Maintain a continuously updated project timeline and lessons learned.' },
+  { title:'Contextual Retrieval', cat:'retrieval', catColor:'#7c8ef7', model:'Knowledge by Situation', solution:'Organize knowledge around questions and workflows, not just topics.' },
+  { title:'Knowledge Packaging', cat:'apply', catColor:'#f472b6', model:'Knowledge as LEGO Bricks', solution:'Convert notes into templates, playbooks, prompts, and SOPs.' },
+  { title:'Thinking in Frameworks', cat:'capture', catColor:'#2dd4a0', model:'Maps Over Directions', solution:'Extract reusable mental models instead of memorizing isolated details.' },
+  { title:'Signal vs. Noise', cat:'capture', catColor:'#2dd4a0', model:'Curator, Not Collector', solution:'Capture only ideas that influence decisions or actions.' },
+  { title:'Knowledge Provenance', cat:'memory', catColor:'#e8a33a', model:'Nutrition Label for Ideas', solution:'Record where insights came from and why they\'re trustworthy.' },
+  { title:'Actionable Knowledge', cat:'apply', catColor:'#f472b6', model:'Knowledge → Action', solution:'End every note with: "What should I do differently because of this?"' },
+];
+
+const pkmGrid = document.getElementById('pkm-cards-grid');
+pkmConcepts.forEach(c => {
+  const div = document.createElement('div');
+  div.className = 'concept-card'; div.dataset.filter = c.cat;
+  div.innerHTML = `
+    <div class="cc-category" style="color:${c.catColor}">${c.cat.toUpperCase()}</div>
+    <div class="cc-title">${c.title}</div>
+    <div class="cc-model">"${c.model}"</div>
+    <div class="cc-solution">${c.solution}</div>`;
+  pkmGrid.appendChild(div);
+});
+
+document.getElementById('pkm-filter-row').addEventListener('click', e => {
+  const btn = e.target.closest('[data-filter]');
+  if (!btn) return;
+  document.querySelectorAll('#pkm-filter-row .pill-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const f = btn.dataset.filter;
+  document.querySelectorAll('#pkm-cards-grid .concept-card').forEach(card => {
+    card.classList.toggle('hidden', f !== 'all' && card.dataset.filter !== f);
+  });
+});
+
+// ════════════════════════════════════
+// INTERACTIVE 7 — BRAIN HEALTH DASHBOARD
+// ════════════════════════════════════
+const brainChecks = [
+  { label:'Notes are linked to related ideas', dim:'memory', weight:12 },
+  { label:'System has a capture trigger/habit', dim:'capture', weight:12 },
+  { label:'Can retrieve any note in <30 seconds', dim:'retrieval', weight:14 },
+  { label:'Notes are progressively summarised', dim:'capture', weight:10 },
+  { label:'AI used to surface cross-domain connections', dim:'retrieval', weight:12 },
+  { label:'High-value notes reviewed monthly', dim:'memory', weight:10 },
+  { label:'Decisions recorded with reasoning', dim:'apply', weight:10 },
+  { label:'Notes converted into templates/SOPs', dim:'apply', weight:10 },
+  { label:'Knowledge applied to current work weekly', dim:'apply', weight:10 },
+];
+
+const brainDims = ['capture','memory','retrieval','apply'];
+const brainDimColors = { capture:'var(--accent-2)', memory:'var(--accent)', retrieval:'var(--accent-3)', apply:'var(--accent-rose)' };
+const brainDimWeights = {};
+brainChecks.forEach(c => { brainDimWeights[c.dim] = (brainDimWeights[c.dim]||0) + c.weight; });
+
+const brainChecksEl = document.getElementById('brain-checks');
+const brainMetersEl = document.getElementById('brain-meters');
+const brainCheckedSet = new Set();
+
+brainChecks.forEach((item, i) => {
+  const label = document.createElement('label');
+  label.className = 'brain-check';
+  const cb = document.createElement('input'); cb.type='checkbox';
+  cb.addEventListener('change', function() {
+    if(this.checked) brainCheckedSet.add(i); else brainCheckedSet.delete(i);
+    updateBrainDashboard();
+  });
+  const span = document.createElement('span');
+  span.className='brain-check-label'; span.textContent=item.label;
+  label.appendChild(cb); label.appendChild(span);
+  brainChecksEl.appendChild(label);
+});
+
+brainDims.forEach(dim => {
+  const wrap = document.createElement('div');
+  wrap.className='brain-meter-row';
+  wrap.innerHTML=`<div class="brain-meter-label">${dim.toUpperCase()}</div>
+    <div class="brain-meter-bar"><div class="brain-meter-fill" id="bm-${dim}" style="width:0%;background:${brainDimColors[dim]}"></div></div>
+    <div class="brain-meter-pct" id="bmp-${dim}">0%</div>`;
+  brainMetersEl.appendChild(wrap);
+});
+
+const brainVerdicts = [
+  [0,20,'Archive, not a brain. Start with one capture habit.','var(--bad)'],
+  [21,40,'Filing cabinet. Add retrieval design.','var(--bad)'],
+  [41,60,'Functional system. Missing compression and review.','var(--warn)'],
+  [61,80,'Strong system. Apply knowledge to work more actively.','var(--warn)'],
+  [81,94,'Knowledge OS. You\'re compounding your thinking.','var(--good)'],
+  [95,100,'Elite. Your second brain thinks alongside you.','var(--accent-2)'],
+];
+
+function updateBrainDashboard() {
+  let total=0; const dimScores={};
+  brainCheckedSet.forEach(i => {
+    const item=brainChecks[i]; total+=item.weight;
+    dimScores[item.dim]=(dimScores[item.dim]||0)+item.weight;
+  });
+  const scoreEl=document.getElementById('brain-score-big');
+  scoreEl.textContent=total;
+  const v=brainVerdicts.find(([min,max])=>total>=min&&total<=max)||brainVerdicts[0];
+  scoreEl.style.color=v[3];
+  brainDims.forEach(dim => {
+    const pct=Math.round(((dimScores[dim]||0)/(brainDimWeights[dim]||1))*100);
+    document.getElementById('bm-'+dim).style.width=pct+'%';
+    document.getElementById('bmp-'+dim).textContent=pct+'%';
+  });
+  const vt=document.getElementById('brain-verdict-text');
+  vt.textContent=v[2]; vt.style.color=v[3];
+  const vbox=document.getElementById('brain-verdict');
+  vbox.style.borderColor=v[3]; vbox.style.background=`color-mix(in srgb, ${v[3]} 5%, var(--surface-2))`;
+}
+
+// ════════════════════════════════════
+// INTERACTIVE 8 — DECISION JOURNAL
+// ════════════════════════════════════
+document.getElementById('dj-generate-btn').addEventListener('click', () => {
+  const decision=document.getElementById('dj-decision').value.trim();
+  const context=document.getElementById('dj-context').value.trim();
+  const alts=document.getElementById('dj-alts').value.trim();
+  const tradeoffs=document.getElementById('dj-tradeoffs').value.trim();
+  const conf=document.getElementById('dj-confidence').value.trim();
+  const review=document.getElementById('dj-review').value.trim();
+  if (!decision) {
+    document.getElementById('dj-decision').style.borderColor='var(--bad)';
+    return;
+  }
+  const now=new Date().toISOString().split('T')[0];
+  const confBar='█'.repeat(parseInt(conf)||5)+'░'.repeat(10-(parseInt(conf)||5));
+  const output=document.getElementById('dj-output');
+  output.style.display='block';
+  output.innerHTML=`<span class="section">── DECISION RECORD ──────────────────</span>
+<span class="key">date</span>           <span class="val">${now}</span>
+<span class="key">decision</span>       <span class="val">${decision||'—'}</span>
+
+<span class="section">── CONTEXT ──────────────────────────</span>
+<span class="val">${context||'No context recorded.'}</span>
+
+<span class="section">── ALTERNATIVES CONSIDERED ──────────</span>
+<span class="val">${alts ? alts.split(',').map(a=>'  • '+a.trim()).join('\n') : '  None recorded.'}</span>
+
+<span class="section">── TRADEOFFS ─────────────────────────</span>
+<span class="val">${tradeoffs||'No tradeoffs recorded.'}</span>
+
+<span class="section">── CONFIDENCE ───────────────────────</span>
+<span class="key">score</span>          <span class="val">${conf||'—'}/10  ${confBar}</span>
+
+<span class="section">── REVIEW TRIGGER ───────────────────</span>
+<span class="key">review_by</span>      <span class="val">${review||'Not set'}</span>
+<span class="key">review_prompt</span>  <span class="val">Was this the right decision? What would you decide differently?</span>
+
+<span class="section">── HASH ──────────────────────────────</span>
+<span class="key">id</span>             <span class="val">DEC-${Date.now().toString(36).toUpperCase()}</span>`;
+});
+</script>
+</body>
+</html>
