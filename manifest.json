@@ -17,6 +17,18 @@
       "excerpt": "Context Engineering is Reducing Uncertainty, Not Adding Information.",
       "date": "2026-04-02",
       "path": "articles/context-engineering.html"
+    },
+    {
+      "title": "AI Second Brain",
+      "excerpt": "From Digital Archive to Knowledge OS.",
+      "date": "2026-04-02",
+      "path": "articles/ai-second-brain.html"
+    },
+    {
+      "title": " Inference Arbitrage",
+      "excerpt": "Build the Smartest System, Not the Smartest Model.",
+      "date": "2026-04-02",
+      "path": "articles/ai-inference-arbitrag.html"
     }
   ]
 }
