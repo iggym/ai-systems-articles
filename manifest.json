@@ -1,10 +1,10 @@
 {
   "articles": [
     {
-      "title": "Optimizing Large Language Model Context Windows",
-      "excerpt": "A deep dive into dynamic token packing strategies, deterministic multi-agent state boards, and programmatic context compression algorithms.",
+      "title": "Context Orchestration",
+      "excerpt": "The Shift From Coding to Context Orchestration.",
       "date": "2026-06-25",
-      "path": "articles/01-context-window-optimization/index.html"
+      "path": "articles/context-orchestration.html"
     },
     {
       "title": "Eliminating Orchestration Loops in Deterministic Multi-Agent Systems",
